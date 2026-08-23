@@ -8,6 +8,10 @@
 #
 #  It creates a conda env with all dependencies and pre-downloads the
 #  CLIP model so that the compute job can run offline (HF_HUB_OFFLINE=1).
+#
+#  NOTE: requirements.txt is used for local development.  On the SCC we
+#  install packages individually because PyTorch must come from the CUDA
+#  index, and query-agent-benchmarking needs a patched local clone.
 # ============================================================================
 set -euo pipefail
 
@@ -24,16 +28,14 @@ fi
 source activate "$ENV_NAME"
 
 # --- 2. Install PyTorch (CUDA build) ---------------------------------------
-# The SCC Grete nodes have A100 GPUs with CUDA 12.x
+# SCC Grete nodes have A100 GPUs with CUDA 12.x
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # --- 3. Install remaining Python dependencies -------------------------------
-pip install \
-    "transformers>=4.30" \
-    "datasets>=2.14" \
-    "sentence-transformers>=2.2" \
-    "Pillow>=9.0" \
-    "numpy>=1.24"
+# These mirror requirements.txt (minus weaviate-client, which is only needed
+# for text retrieval via Weaviate Cloud).
+pip install -r requirements.txt
+pip uninstall -y weaviate-client 2>/dev/null || true
 
 # query-agent-benchmarking with patches — install from the local clone
 QAB_DIR="${QAB_DIR:-$WORK/workspaces/query-agent-benchmarking}"
@@ -60,4 +62,4 @@ print('Done.')
 
 echo "=== Setup complete ==="
 echo "Activate the env on compute nodes with:  source activate $ENV_NAME"
-echo "Submit the job with:                     sbatch slurm-image-job.sh"
+echo "Submit the job with:                     sbatch scripts/slurm-image-job.sh"

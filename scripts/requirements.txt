@@ -1,4 +1,4 @@
-query-agent-benchmarking>=0.1.0
+query-agent-benchmarking @ git+https://github.com/weaviate/query-agent-benchmarking.git
 torch>=2.0
 transformers>=4.30
 sentence-transformers>=2.2
