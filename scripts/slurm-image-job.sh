@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=gdz-image-retrieval
 #SBATCH -p scc-gpu               # SCC GPU partition (Grete A100 nodes)
+#SBATCH --account=<your-project>  # ← REQUIRED: replace with your SCC project/account
 #SBATCH -G A100:1                # 1× A100 GPU
 #SBATCH -t 06:00:00              # walltime — always set a limit
 #SBATCH --mail-type=all
