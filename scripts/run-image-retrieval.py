@@ -10,13 +10,51 @@ import base64
 import io
 import json
 import os
+import sys
 import time
+import types
 from pathlib import Path
 
 import torch
 from datasets import load_dataset
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
+
+_fake_engram = types.ModuleType("engram")
+_fake_engram.EngramClient = object
+_fake_engram.RetrievalConfigModel = object
+_fake_engram.RetrievalConfig = _fake_engram.RetrievalConfigModel
+_fake_engram.ConversationInput = object
+_fake_engram.MessageInput = object
+sys.modules.setdefault("engram", _fake_engram)
+
+import query_agent_benchmarking.internal.core.domain.metrics_config as _metrics_config
+
+_orig_resolve_metrics_profile = _metrics_config.resolve_metrics_profile
+
+
+def _patched_resolve_metrics_profile(dataset_name, extra_metrics=None):
+    if dataset_name is None:
+        return _metrics_config._DEFAULT_METRICS
+    base = None
+    for profile in _metrics_config.DATASET_METRICS_REGISTRY:
+        if dataset_name == profile.dataset_pattern or dataset_name.startswith(profile.dataset_pattern):
+            base = profile.metrics
+            break
+    if base is None:
+        base = _metrics_config._DEFAULT_METRICS
+    if not extra_metrics:
+        return base
+    existing_keys = {spec.key for spec in base}
+    merged = list(base)
+    for spec in extra_metrics:
+        if spec.key not in existing_keys:
+            merged.append(spec)
+            existing_keys.add(spec.key)
+    return tuple(merged)
+
+
+_metrics_config.resolve_metrics_profile = _patched_resolve_metrics_profile
 
 from query_agent_benchmarking import (
     DocsCollection,
@@ -114,7 +152,7 @@ def main() -> None:
     parser.add_argument("--max-docs", type=int, default=3021)
     parser.add_argument("--max-queries", type=int, default=180)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--output-dir", type=Path, default=Path("console/results"))
+    parser.add_argument("--output-dir", type=Path, default=Path(__file__).resolve().parent / "console" / "results")
     args = parser.parse_args()
 
     docs, queries = load_gdz_dataset()

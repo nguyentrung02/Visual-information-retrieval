@@ -6,6 +6,8 @@ Queries are passed in-memory to avoid needing a second collection.
 """
 
 import os
+import sys
+import types
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -16,6 +18,42 @@ from weaviate.classes.config import Configure, Property, DataType
 from weaviate.client import WeaviateClient
 from weaviate.connect import ConnectionParams, ProtocolParams
 from datasets import load_dataset
+
+_fake_engram = types.ModuleType("engram")
+_fake_engram.EngramClient = object
+_fake_engram.RetrievalConfigModel = object
+_fake_engram.RetrievalConfig = _fake_engram.RetrievalConfigModel
+_fake_engram.ConversationInput = object
+_fake_engram.MessageInput = object
+sys.modules.setdefault("engram", _fake_engram)
+
+import query_agent_benchmarking.internal.core.domain.metrics_config as _metrics_config
+
+_orig_resolve_metrics_profile = _metrics_config.resolve_metrics_profile
+
+
+def _patched_resolve_metrics_profile(dataset_name, extra_metrics=None):
+    if dataset_name is None:
+        return _metrics_config._DEFAULT_METRICS
+    base = None
+    for profile in _metrics_config.DATASET_METRICS_REGISTRY:
+        if dataset_name == profile.dataset_pattern or dataset_name.startswith(profile.dataset_pattern):
+            base = profile.metrics
+            break
+    if base is None:
+        base = _metrics_config._DEFAULT_METRICS
+    if not extra_metrics:
+        return base
+    existing_keys = {spec.key for spec in base}
+    merged = list(base)
+    for spec in extra_metrics:
+        if spec.key not in existing_keys:
+            merged.append(spec)
+            existing_keys.add(spec.key)
+    return tuple(merged)
+
+
+_metrics_config.resolve_metrics_profile = _patched_resolve_metrics_profile
 
 from query_agent_benchmarking import (
     DocsCollection,
@@ -147,7 +185,7 @@ def main():
             search_agent_name=agent_name,
             num_trials=1,
             use_async=False,
-            output_path=f"console/results/gdz-{agent_name}",
+            output_path=str(Path(__file__).resolve().parent / "console" / "results" / f"gdz-{agent_name}"),
         )
         print(f"Finished {agent_name} eval.")
 
