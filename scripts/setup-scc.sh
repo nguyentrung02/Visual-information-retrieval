@@ -34,7 +34,8 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 # --- 3. Install remaining Python dependencies -------------------------------
 # These mirror requirements.txt (minus weaviate-client, which is only needed
 # for text retrieval via Weaviate Cloud).
-pip install -r requirements.txt
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+pip install -r "$SCRIPT_DIR/requirements.txt"
 pip uninstall -y weaviate-client 2>/dev/null || true
 
 # query-agent-benchmarking with patches — install from the local clone
