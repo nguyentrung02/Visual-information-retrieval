@@ -70,22 +70,25 @@ python compare_methods.py
 
 ### 5. Run on the GWDG SCC (GPU)
 
-```bash
-# 1. SSH to the Grete login node (SCC GPU account)
-ssh <your-user>@glogin-gpu.hpc.gwdg.de
+Your SLURM account is `kisski-nlpbg` (a **KISSKI** project, not SCC).
+GPU work must be done on the Grete login node `glogin-gpu`.
 
-# 2. Clone your repo to $WORK and set up the environment (one-time)
+```bash
+# 1. SSH to the Grete GPU login node (NOT glogin/glogin10 which is CPU-only)
+ssh u29949@glogin-gpu.hpc.gwdg.de
+
+# 2. Clone repos to $WORK
 cd $WORK/workspaces
 git clone https://github.com/nguyentrung02/Visual-information-retrieval.git
-cd Visual-information-retrieval/scripts
-bash setup-scc.sh
+git clone https://github.com/weaviate/query-agent-benchmarking.git
 
-# 3. Pre-download model (if not already cached)
+# 3. One-time environment setup (conda env + CLIP model download)
+cd Visual-information-retrieval
+bash scripts/setup-scc.sh
+
+# 4. Submit the image retrieval job (partition: kisski, account: kisski-nlpbg)
 source activate gdz-retrieval
-python -c "from transformers import CLIPModel; CLIPModel.from_pretrained('openai/clip-vit-base-patch32')"
-
-# 4. Submit the Slurm job
-sbatch slurm-image-job.sh
+sbatch scripts/slurm-image-job.sh
 
 # 5. Monitor
 squeue --me
