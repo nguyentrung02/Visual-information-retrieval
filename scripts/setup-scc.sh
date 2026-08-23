@@ -22,7 +22,7 @@ module load miniforge3 gcc cuda
 ENV_NAME="gdz-retrieval"
 if ! conda env list | grep -q "$ENV_NAME"; then
     echo ">>> Creating conda env: $ENV_NAME"
-    conda create -y -n "$ENV_NAME" python=3.10
+    conda create -y -n "$ENV_NAME" python=3.11
 fi
 
 source activate "$ENV_NAME"
