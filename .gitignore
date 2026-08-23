@@ -1,0 +1,24 @@
+# Environment
+.env
+.env.*
+!*.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Data — large files (PDFs, full corpora); dataset is on Hugging Face
+data/PDFs/
+
+# Large result files (>5 MB) — full-ranking JSON per query
+console/results/*.json
+!console/results/.gitkeep
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
