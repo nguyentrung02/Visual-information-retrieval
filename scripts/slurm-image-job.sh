@@ -1,15 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=gdz-image-retrieval
-#SBATCH -p scc-gpu               # SCC GPU partition (Grete A100 nodes)
-#SBATCH --account=u29949
-#SBATCH -G A100:1                # 1× A100 GPU
+#SBATCH -p kisski               # KISSKI GPU partition on Grete (A100 nodes)
+#SBATCH --account=kisski-nlpbg    # your SLURM project account (from sbalance)
+#SBATCH -G A100:1                # 1× A100 GPU (kisski partition is shared)
 #SBATCH -t 06:00:00              # walltime — always set a limit
 #SBATCH --mail-type=all
 #SBATCH -o %x-%j.out             # %x = job-name, %j = job id
 
 # ---------------------------------------------------------------------------
 # Environment setup — follows GWDG HPC best practices (see SKILL.md)
-# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 module purge
 module load miniforge3 gcc cuda
