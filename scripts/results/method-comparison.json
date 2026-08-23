@@ -1,0 +1,47 @@
+{
+  "Weaviate BM25": {
+    "source": "console\\results\\gdz-bm25-search-1-20260704-231542-results-trial-1.json",
+    "dataset": "gdz",
+    "documents": null,
+    "queries": 180,
+    "recall_at_1": 0.178,
+    "recall_at_5": 0.267,
+    "recall_at_20": 0.283
+  },
+  "Weaviate hybrid": {
+    "source": "console\\results\\gdz-hybrid-search-1-20260704-231324-results-trial-1.json",
+    "dataset": "gdz",
+    "documents": null,
+    "queries": 180,
+    "recall_at_1": 0.161,
+    "recall_at_5": 0.261,
+    "recall_at_20": 0.289
+  },
+  "Weaviate vector": {
+    "source": "console\\results\\gdz-vector-search-1-20260704-231740-results-trial-1.json",
+    "dataset": "gdz",
+    "documents": null,
+    "queries": 180,
+    "recall_at_1": 0.139,
+    "recall_at_5": 0.25,
+    "recall_at_20": 0.278
+  },
+  "Standalone BM25": {
+    "source": "console\\results\\gdz-text-local.json",
+    "dataset": "gdz",
+    "documents": 3021,
+    "queries": 180,
+    "recall_at_1": 0.178,
+    "recall_at_5": 0.261,
+    "recall_at_20": 0.283
+  },
+  "Standalone CLIP image": {
+    "source": "console\\results\\gdz-image-full-local-v2.json",
+    "dataset": "gdz",
+    "documents": 3021,
+    "queries": 180,
+    "recall_at_1": 0.006,
+    "recall_at_5": 0.017,
+    "recall_at_20": 0.044
+  }
+}

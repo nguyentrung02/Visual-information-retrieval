@@ -1,0 +1,8 @@
+query-agent-benchmarking>=0.1.0
+torch>=2.0
+transformers>=4.30
+sentence-transformers>=2.2
+datasets>=2.14
+weaviate-client>=4.0
+Pillow>=9.0
+python-dotenv>=1.0
