@@ -33,7 +33,8 @@ source activate "$ENV_NAME"
 
 # --- 2. Install PyTorch (CUDA build) ---------------------------------------
 # SCC Grete nodes have A100 GPUs with CUDA 12.x
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# transformers>=4.x requires torch>=2.6 (CVE-2025-32434 fix)
+pip install "torch>=2.6" torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # --- 3. Install all Python dependencies from requirements.txt ---------------
 # weaviate-client is required as a transitive dependency of query-agent-benchmarking
