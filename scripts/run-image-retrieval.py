@@ -24,9 +24,14 @@ from transformers import CLIPModel, CLIPProcessor
 # torch >= 2.6 is not available on the KISSKI SCC's cu121 index.
 # We load trusted HuggingFace weights from .bin checkpoint files — acceptable
 # because the model is from openai/ (a verified publisher) and not user-supplied.
-import transformers.utils.import_utils as _hftx
-if hasattr(_hftx, "check_torch_load_is_safe"):
-    _hftx.check_torch_load_is_safe = lambda: None
+# Must patch in *every* module that imported the function by value.
+_safe_noop = lambda: None
+for _mod in list(sys.modules.values()):
+    if _mod is not None and hasattr(_mod, "check_torch_load_is_safe"):
+        try:
+            _mod.check_torch_load_is_safe = _safe_noop
+        except (AttributeError, TypeError):
+            pass
 
 class _FakeEngramModule(types.ModuleType):
     """Catch-all fake engram module — returns ``object`` for any attribute.

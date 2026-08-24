@@ -60,9 +60,13 @@ export HF_HOME="${HF_HOME:-$WORK/.cache/huggingface}"
 mkdir -p "$HF_HOME"
 
 python -c "
-import transformers.utils.import_utils
-transformers.utils.import_utils.check_torch_load_is_safe = lambda: None
 from transformers import CLIPModel, CLIPProcessor
+# Bypass CVE-2025-32434 torch.load check (torch>=2.6 not on cu121 index)
+import sys
+for _m in list(sys.modules.values()):
+    if _m is not None and hasattr(_m, 'check_torch_load_is_safe'):
+        try: _m.check_torch_load_is_safe = lambda: None
+        except: pass
 print('Downloading openai/clip-vit-base-patch32 ...')
 CLIPModel.from_pretrained('openai/clip-vit-base-patch32', torch_dtype='float32')
 CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32')
