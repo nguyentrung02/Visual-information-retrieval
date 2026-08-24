@@ -20,12 +20,18 @@ from datasets import load_dataset
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-_fake_engram = types.ModuleType("engram")
-_fake_engram.EngramClient = object
-_fake_engram.RetrievalConfigModel = object
-_fake_engram.RetrievalConfig = _fake_engram.RetrievalConfigModel
-_fake_engram.ConversationInput = object
-_fake_engram.MessageInput = object
+class _FakeEngramModule(types.ModuleType):
+    """Catch-all fake engram module — returns ``object`` for any attribute.
+
+    The installed query-agent-benchmarking may import various names from
+    ``engram`` (EngramClient, BM25Retrieval, FetchRetrieval, HybridRetrieval,
+    VectorRetrieval, ...).  We only need the import to succeed; the image
+    retrieval agent never calls into engram.
+    """
+    def __getattr__(self, name):
+        return object
+
+_fake_engram = _FakeEngramModule("engram")
 sys.modules.setdefault("engram", _fake_engram)
 
 import query_agent_benchmarking.internal.core.domain.metrics_config as _metrics_config
