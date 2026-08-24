@@ -62,6 +62,14 @@ def _patched_resolve_metrics_profile(dataset_name, extra_metrics=None):
 
 _metrics_config.resolve_metrics_profile = _patched_resolve_metrics_profile
 
+# Patch at the import site — ir_metrics_calculator.py does
+#   from ...metrics_config import resolve_metrics_profile
+# so patching metrics_config.resolve_metrics_profile alone is NOT enough;
+# the imported reference in ir_metrics_calculator's namespace still points
+# to the original (which raises ValueError for "GDZ").
+import query_agent_benchmarking.internal.adapters.metrics.ir_metrics_calculator as _ir_calc
+_ir_calc.resolve_metrics_profile = _patched_resolve_metrics_profile
+
 from query_agent_benchmarking import (
     DocsCollection,
     InMemoryQuery,
