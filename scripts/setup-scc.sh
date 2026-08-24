@@ -31,12 +31,12 @@ source activate "$ENV_NAME"
 # SCC Grete nodes have A100 GPUs with CUDA 12.x
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
-# --- 3. Install remaining Python dependencies -------------------------------
-# These mirror requirements.txt (minus weaviate-client, which is only needed
-# for text retrieval via Weaviate Cloud).
+# --- 3. Install all Python dependencies from requirements.txt ---------------
+# weaviate-client is required as a transitive dependency of query-agent-benchmarking
+# (its __init__.py imports weaviate at module level).  Having the library installed
+# does NOT mean Weaviate Cloud is used — run-image-retrieval.py is pure brute-force.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pip install -r "$SCRIPT_DIR/requirements.txt"
-pip uninstall -y weaviate-client 2>/dev/null || true
 
 # query-agent-benchmarking with patches — install from the local clone
 QAB_DIR="${QAB_DIR:-$WORK/workspaces/query-agent-benchmarking}"
