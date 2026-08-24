@@ -41,9 +41,10 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 # does NOT mean Weaviate Cloud is used — run-image-retrieval.py is pure brute-force.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pip install -r "$SCRIPT_DIR/requirements.txt"
+pip install matplotlib  # for result visualization (plot_results.py)
 
 # query-agent-benchmarking with patches — install from the local clone
-: "${WORK:=${HOME}/work}"   # fallback if $WORK is not set by the module stack
+# (must come after requirements.txt so deps like dspy are already present)
 QAB_DIR="${QAB_DIR:-$WORK/workspaces/query-agent-benchmarking}"
 if [ -d "$QAB_DIR" ]; then
     pip install -e "$QAB_DIR"
