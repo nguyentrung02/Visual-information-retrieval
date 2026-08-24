@@ -108,6 +108,8 @@ class CLIPImageSearchAgent:
                 inputs = self.processor(images=batch, return_tensors="pt")
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
                 vecs = self.model.get_image_features(**inputs)
+                if not isinstance(vecs, torch.Tensor):
+                    vecs = vecs.pooler_output
                 vectors.append(vecs.cpu())
         self.image_embeddings = torch.nn.functional.normalize(
             torch.cat(vectors).float(), dim=1
@@ -119,6 +121,8 @@ class CLIPImageSearchAgent:
             inputs = self.processor(text=[query], return_tensors="pt", padding=True)
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
             text_vec = self.model.get_text_features(**inputs)
+            if not isinstance(text_vec, torch.Tensor):
+                text_vec = text_vec.pooler_output
             text_vec = torch.nn.functional.normalize(text_vec.float(), dim=1).cpu()
 
         scores = (self.image_embeddings @ text_vec.T).squeeze(1).tolist()
