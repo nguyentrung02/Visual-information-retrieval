@@ -15,6 +15,10 @@
 # ============================================================================
 set -euo pipefail
 
+# On KISSKI accounts, $WORK is often unset — use $PROJECT as fallback
+: "${WORK:=${PROJECT:-${HOME}}}"
+export WORK
+
 module purge
 module load miniforge3 gcc cuda
 

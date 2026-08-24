@@ -16,7 +16,8 @@ module load miniforge3 gcc cuda
 # Activate the conda env created by setup-scc.sh on the login node
 source activate gdz-retrieval 2>/dev/null || source activate base
 
-# Keep HF caches on fast $WORK storage, NOT $HOME (60 GiB quota)
+# Keep HF caches on fast $PROJECT or $WORK storage, NOT $HOME (60 GiB quota)
+: "${WORK:=${PROJECT:-${HOME}}}"
 export HF_HOME="${HF_HOME:-$WORK/.cache/huggingface}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$WORK/.cache/huggingface/transformers}"
 export HF_HUB_OFFLINE=1        # model pre-downloaded on login node
