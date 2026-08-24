@@ -62,7 +62,7 @@ mkdir -p "$HF_HOME"
 python -c "
 from transformers import CLIPModel, CLIPProcessor
 print('Downloading openai/clip-vit-base-patch32 ...')
-CLIPModel.from_pretrained('openai/clip-vit-base-patch32')
+CLIPModel.from_pretrained('openai/clip-vit-base-patch32', torch_dtype=torch.float32, use_safetensors=True)
 CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32')
 print('Done.')
 "

@@ -93,7 +93,9 @@ class CLIPImageSearchAgent:
         self.document_ids = document_ids
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = CLIPProcessor.from_pretrained(model_name)
-        self.model = CLIPModel.from_pretrained(model_name).to(self.device).eval()
+        self.model = CLIPModel.from_pretrained(
+            model_name, torch_dtype=torch.float32, use_safetensors=True
+        ).to(self.device).eval()
 
         print(f"Encoding {len(images)} images on {self.device}...")
         vectors = []
