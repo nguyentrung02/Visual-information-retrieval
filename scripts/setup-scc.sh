@@ -62,8 +62,19 @@ mkdir -p "$HF_HOME"
 python -c "
 from transformers import CLIPModel, CLIPProcessor
 print('Downloading openai/clip-vit-base-patch32 ...')
-CLIPModel.from_pretrained('openai/clip-vit-base-patch32', torch_dtype=torch.float32, use_safetensors=True)
+CLIPModel.from_pretrained('openai/clip-vit-base-patch32', torch_dtype='float32', use_safetensors=True)
 CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32')
+print('Done.')
+"
+
+# --- 5. Pre-download the GDZ dataset on the login node ----------------------
+# The compute nodes run with HF_HUB_OFFLINE=1, so all datasets must be cached
+# under $WORK/.cache/huggingface (not the default ~/.cache).
+python -c "
+from datasets import load_dataset
+print('Caching Trungdaik/Visual_information_retrieval ...')
+load_dataset('Trungdaik/Visual_information_retrieval', 'docs', split='train')
+load_dataset('Trungdaik/Visual_information_retrieval', 'queries', split='train')
 print('Done.')
 "
 
