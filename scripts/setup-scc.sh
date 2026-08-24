@@ -39,6 +39,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pip install -r "$SCRIPT_DIR/requirements.txt"
 
 # query-agent-benchmarking with patches — install from the local clone
+: "${WORK:=${HOME}/work}"   # fallback if $WORK is not set by the module stack
 QAB_DIR="${QAB_DIR:-$WORK/workspaces/query-agent-benchmarking}"
 if [ -d "$QAB_DIR" ]; then
     pip install -e "$QAB_DIR"
