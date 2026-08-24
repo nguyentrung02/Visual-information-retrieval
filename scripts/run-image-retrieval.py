@@ -130,7 +130,11 @@ class CLIPImageSearchAgent:
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
                 vecs = self.model.get_image_features(**inputs)
                 if not isinstance(vecs, torch.Tensor):
+                    # transformers 4.56 returns raw vision output — apply projection
                     vecs = vecs.pooler_output
+                    _proj = getattr(self.model, "visual_projection", None)
+                    if _proj is not None:
+                        vecs = _proj(vecs)
                 vectors.append(vecs.cpu())
         self.image_embeddings = torch.nn.functional.normalize(
             torch.cat(vectors).float(), dim=1
@@ -143,7 +147,13 @@ class CLIPImageSearchAgent:
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
             text_vec = self.model.get_text_features(**inputs)
             if not isinstance(text_vec, torch.Tensor):
+                # transformers 4.56 returns raw text output — apply projection
                 text_vec = text_vec.pooler_output
+                _proj = getattr(self.model, "text_projection", None) or getattr(
+                    self.model, "textual_projection", None
+                )
+                if _proj is not None:
+                    text_vec = _proj(text_vec)
             text_vec = torch.nn.functional.normalize(text_vec.float(), dim=1).cpu()
 
         scores = (self.image_embeddings @ text_vec.T).squeeze(1).tolist()
