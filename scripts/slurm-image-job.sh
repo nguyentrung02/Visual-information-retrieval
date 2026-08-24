@@ -26,7 +26,8 @@ export TRANSFORMERS_OFFLINE=1
 # ---------------------------------------------------------------------------
 # Locate the repository (defaults to $SLURM_SUBMIT_DIR or $WORK clone)
 # ---------------------------------------------------------------------------
-REPO_DIR="${REPO_DIR:-$SLURM_SUBMIT_DIR}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="${REPO_DIR:-$SCRIPT_DIR/..}"
 cd "$REPO_DIR" || exit 1
 
 # ---------------------------------------------------------------------------
