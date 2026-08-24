@@ -24,17 +24,19 @@ export HF_HUB_OFFLINE=1        # model pre-downloaded on login node
 export TRANSFORMERS_OFFLINE=1
 
 # ---------------------------------------------------------------------------
-# Locate the repository (defaults to $SLURM_SUBMIT_DIR or $WORK clone)
+# Locate the repository on the compute node
+# Under Slurm, BASH_SOURCE points to a spooled copy in /var/spool/slurmd,
+# so SLURM_SUBMIT_DIR is the reliable path to the original repo.
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="${REPO_DIR:-$SCRIPT_DIR/..}"
+REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$SCRIPT_DIR/..}}"
 cd "$REPO_DIR" || exit 1
 
 # ---------------------------------------------------------------------------
 # Run the brute-force CLIP image retrieval
 # (already uses cosine similarity — no Weaviate required)
 # ---------------------------------------------------------------------------
-python -u scripts/run-image-retrieval.py \
+python -u "$REPO_DIR/scripts/run-image-retrieval.py" \
     --model openai/clip-vit-base-patch32 \
     --max-docs 3021 \
     --max-queries 180 \
