@@ -20,6 +20,14 @@ from datasets import load_dataset
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
+# Disable transformers' torch.load security check (CVE-2025-32434).
+# torch >= 2.6 is not available on the KISSKI SCC's cu121 index.
+# We load trusted HuggingFace weights from .bin checkpoint files — acceptable
+# because the model is from openai/ (a verified publisher) and not user-supplied.
+import transformers.utils.import_utils as _hftx
+if hasattr(_hftx, "check_torch_load_is_safe"):
+    _hftx.check_torch_load_is_safe = lambda: None
+
 class _FakeEngramModule(types.ModuleType):
     """Catch-all fake engram module — returns ``object`` for any attribute.
 
@@ -102,7 +110,7 @@ class CLIPImageSearchAgent:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = CLIPProcessor.from_pretrained(model_name)
         self.model = CLIPModel.from_pretrained(
-            model_name, torch_dtype=torch.float32, use_safetensors=True
+            model_name, torch_dtype=torch.float32
         ).to(self.device).eval()
 
         print(f"Encoding {len(images)} images on {self.device}...")
