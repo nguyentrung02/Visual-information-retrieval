@@ -66,7 +66,7 @@ def compute_rank(queries):
 
 
 def plot_recall_bar(queries_list, labels, outdir):
-    ks = [1, 5, 20, 50]
+    ks = [1, 5, 20]
     n = len(queries_list)
     x = np.arange(len(ks))
     width = 0.8 / n
@@ -90,8 +90,6 @@ def plot_recall_bar(queries_list, labels, outdir):
     ax.set_ylim(0, 0.6)
     fig.tight_layout()
     fig.savefig(outdir / "recall_bar.png", dpi=150)
-    plt.close(fig)
-    print(f"  → recall_bar.png")
 
 
 def plot_rank_histogram(queries_list, labels, outdir):
