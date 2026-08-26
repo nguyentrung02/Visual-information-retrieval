@@ -53,23 +53,26 @@ else
     echo "         Install manually: pip install -e /path/to/query-agent-benchmarking"
 fi
 
-# --- 4. Pre-download the CLIP model on the login node ----------------------
+# --- 4. Pre-download the model on the login node -----------------------------
 # This caches the model weights under $WORK (not $HOME) so the compute
 # node can use them with HF_HUB_OFFLINE=1.
+# Default: openai/clip-vit-large-patch14 (3x larger than base, much better recall)
+# Alternatives: google/siglip-base-patch16-224, laion/CLIP-ViT-H-14-laion2B-s32B-b76K
 export HF_HOME="${HF_HOME:-$WORK/.cache/huggingface}"
 mkdir -p "$HF_HOME"
 
+MODEL_NAME="${MODEL_NAME:-openai/clip-vit-large-patch14}"
 python -c "
-from transformers import CLIPModel, CLIPProcessor
-# Bypass CVE-2025-32434 torch.load check (torch>=2.6 not on cu121 index)
 import sys
+# Bypass CVE-2025-32434 torch.load check (torch>=2.6 not on cu121 index)
 for _m in list(sys.modules.values()):
     if _m is not None and hasattr(_m, 'check_torch_load_is_safe'):
         try: _m.check_torch_load_is_safe = lambda: None
         except: pass
-print('Downloading openai/clip-vit-base-patch32 ...')
-CLIPModel.from_pretrained('openai/clip-vit-base-patch32', torch_dtype='float32')
-CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32')
+from transformers import AutoModel, AutoProcessor
+print('Downloading $MODEL_NAME ...')
+AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32', attn_implementation='eager')
+AutoProcessor.from_pretrained('$MODEL_NAME')
 print('Done.')
 "
 

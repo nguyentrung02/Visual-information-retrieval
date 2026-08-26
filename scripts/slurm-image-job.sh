@@ -36,9 +36,9 @@ cd "$REPO_DIR" || exit 1
 # Run the brute-force CLIP image retrieval
 # (already uses cosine similarity — no Weaviate required)
 # ---------------------------------------------------------------------------
-python -u "$REPO_DIR/scripts/run-image-retrieval.py" \
-    --model openai/clip-vit-base-patch32 \
-    --max-docs 3021 \
-    --max-queries 180 \
-    --batch-size 64 \
-    --output-dir console/results
+    python -u "$REPO_DIR/scripts/run-image-retrieval.py" \
+        --model openai/clip-vit-large-patch14 \
+        --max-docs 3021 \
+        --max-queries 180 \
+        --batch-size 64 \
+        --output-dir console/results

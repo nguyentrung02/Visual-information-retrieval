@@ -18,7 +18,7 @@ from pathlib import Path
 import torch
 from datasets import load_dataset
 from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
+from transformers import AutoModel, AutoProcessor
 
 # Disable transformers' torch.load security check (CVE-2025-32434).
 # torch >= 2.6 is not available on the KISSKI SCC's cu121 index.
@@ -113,9 +113,10 @@ class CLIPImageSearchAgent:
     ):
         self.document_ids = document_ids
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.processor = CLIPProcessor.from_pretrained(model_name)
-        self.model = CLIPModel.from_pretrained(
-            model_name, torch_dtype=torch.float32
+        self.processor = AutoProcessor.from_pretrained(model_name)
+        self.model = AutoModel.from_pretrained(
+            model_name, torch_dtype=torch.float32,
+            attn_implementation="eager"
         ).to(self.device).eval()
 
         print(f"Encoding {len(images)} images on {self.device}...")

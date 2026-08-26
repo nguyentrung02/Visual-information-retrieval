@@ -1,4 +1,5 @@
-query-agent-benchmarking @ git+https://github.com/weaviate/query-agent-benchmarking.git
+# query-agent-benchmarking: install from local clone on SCC (see setup-scc.sh)
+# query-agent-benchmarking @ git+https://github.com/weaviate/query-agent-benchmarking.git
 torch>=2.0
 transformers>=4.30
 sentence-transformers>=2.2
