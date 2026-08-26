@@ -108,16 +108,21 @@ class CLIPImageSearchAgent:
         self,
         images: list[str | bytes],
         document_ids: list[str],
-        model_name: str = "openai/clip-vit-base-patch32",
+        model_name: str = "openai/clip-vit-large-patch14",
         batch_size: int = 32,
     ):
         self.document_ids = document_ids
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = AutoProcessor.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(
-            model_name, torch_dtype=torch.float32,
-            attn_implementation="eager"
-        ).to(self.device).eval()
+        try:
+            self.model = AutoModel.from_pretrained(
+                model_name, torch_dtype=torch.float32,
+                attn_implementation="eager"
+            ).to(self.device).eval()
+        except TypeError:
+            self.model = AutoModel.from_pretrained(
+                model_name, torch_dtype=torch.float32
+            ).to(self.device).eval()
 
         print(f"Encoding {len(images)} images on {self.device}...")
         vectors = []
