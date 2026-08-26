@@ -24,21 +24,21 @@ export HF_HUB_OFFLINE=1        # model pre-downloaded on login node
 export TRANSFORMERS_OFFLINE=1
 
 # ---------------------------------------------------------------------------
-# Locate the repository on the compute node
-# Under Slurm, BASH_SOURCE points to a spooled copy in /var/spool/slurmd,
-# so SLURM_SUBMIT_DIR is the reliable path to the original repo.
+# Locate directories on the compute node.
+# This script lives at: .../Visual-information-retrieval/scripts/slurm-image-job.sh
+# Results should land in: .../query-agent-benchmarking/console/results/
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$SCRIPT_DIR/..}}"
-cd "$REPO_DIR" || exit 1
+WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$WORKSPACE_DIR/query-agent-benchmarking" || exit 1
 
 # ---------------------------------------------------------------------------
 # Run the brute-force CLIP image retrieval
-# (already uses cosine similarity — no Weaviate required)
+# Uses cosine similarity — no Weaviate required at runtime.
 # ---------------------------------------------------------------------------
-    python -u "$REPO_DIR/scripts/run-image-retrieval.py" \
-        --model openai/clip-vit-large-patch14 \
-        --max-docs 3021 \
-        --max-queries 180 \
-        --batch-size 64 \
-        --output-dir console/results
+python -u "$SCRIPT_DIR/run-image-retrieval.py" \
+    --model openai/clip-vit-large-patch14 \
+    --max-docs 3021 \
+    --max-queries 180 \
+    --batch-size 64 \
+    --output-dir console/results
