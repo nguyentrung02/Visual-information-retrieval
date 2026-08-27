@@ -45,7 +45,8 @@ pip install matplotlib  # for result visualization (plot_results.py)
 
 # query-agent-benchmarking with patches — install from the local clone
 # (must come after requirements.txt so deps like dspy are already present)
-QAB_DIR="${QAB_DIR:-$WORK/workspaces/query-agent-benchmarking}"
+# Default: $HOME/query-agent-benchmarking (sibling of $HOME/Visual-information-retrieval)
+QAB_DIR="${QAB_DIR:-${HOME}/query-agent-benchmarking}"
 if [ -d "$QAB_DIR" ]; then
     pip install -e "$QAB_DIR"
 else
