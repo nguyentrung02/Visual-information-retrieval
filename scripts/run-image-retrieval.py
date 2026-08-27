@@ -137,10 +137,15 @@ class CLIPImageSearchAgent:
                 model_name, torch_dtype=torch.float32
             ).to(self.device).eval()
 
-        # Get projection dimension from config or infer from projection layer
-        self.proj_dim = getattr(self.model.config, "projection_dim", None)
-        if self.proj_dim is None and hasattr(self.model, "visual_projection"):
+        # Get projection dimension — prefer the projection layer's actual
+        # output dim (config.projection_dim may be wrong in some transformers
+        # versions, returning hidden_size instead of the projected dimension).
+        if hasattr(self.model, "visual_projection"):
             self.proj_dim = self.model.visual_projection.out_features
+        elif hasattr(self.model, "vision_proj"):
+            self.proj_dim = self.model.vision_proj.out_features
+        else:
+            self.proj_dim = getattr(self.model.config, "projection_dim", None)
         print(f"  Model: {type(self.model).__name__}, proj_dim: {self.proj_dim}")
 
         print(f"Encoding {len(images)} images on {self.device} (tiles={num_tiles})...")
