@@ -25,18 +25,23 @@ export TRANSFORMERS_OFFLINE=1
 
 # ---------------------------------------------------------------------------
 # Locate directories on the compute node.
-# This script lives at: $HOME/Visual-information-retrieval/scripts/slurm-image-job.sh
-# query-agent-benchmarking is at: $PROJECT/workspaces/query-agent-benchmarking
-# Results land in: .../query-agent-benchmarking/console/results/
+# Visual-information-retrieval is at: $HOME/Visual-information-retrieval
+# query-agent-benchmarking is at:     $PROJECT/workspaces/query-agent-benchmarking
+# Results land in:                    <qab>/console/results/
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-: "${WORK:=${PROJECT:-${HOME}}}"
 
-# Try sibling dir first, then fall back to $PROJECT/workspaces/
-QAB_DIR="${QAB_DIR:-../query-agent-benchmarking}"
-if [ ! -d "$QAB_DIR" ]; then
+# Resolve QAB dir: explicit override > $PROJECT/workspaces > sibling dir
+if [ -n "${QAB_DIR:-}" ]; then
+    :
+elif [ -d "${PROJECT}/workspaces/query-agent-benchmarking" ]; then
     QAB_DIR="${PROJECT}/workspaces/query-agent-benchmarking"
+elif [ -d "../query-agent-benchmarking" ]; then
+    QAB_DIR="$(cd "../query-agent-benchmarking" && pwd)"
+else
+    QAB_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)/query-agent-benchmarking"
 fi
+
 cd "$QAB_DIR" || { echo "ERROR: query-agent-benchmarking not found at $QAB_DIR" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
