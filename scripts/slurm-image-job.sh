@@ -25,12 +25,19 @@ export TRANSFORMERS_OFFLINE=1
 
 # ---------------------------------------------------------------------------
 # Locate directories on the compute node.
-# This script lives at: .../Visual-information-retrieval/scripts/slurm-image-job.sh
-# Results should land in: .../query-agent-benchmarking/console/results/
+# This script lives at: $HOME/Visual-information-retrieval/scripts/slurm-image-job.sh
+# query-agent-benchmarking is at: $PROJECT/workspaces/query-agent-benchmarking
+# Results land in: .../query-agent-benchmarking/console/results/
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-cd "$WORKSPACE_DIR/query-agent-benchmarking" || exit 1
+: "${WORK:=${PROJECT:-${HOME}}}"
+
+# Try sibling dir first, then fall back to $PROJECT/workspaces/
+QAB_DIR="${QAB_DIR:-../query-agent-benchmarking}"
+if [ ! -d "$QAB_DIR" ]; then
+    QAB_DIR="${PROJECT}/workspaces/query-agent-benchmarking"
+fi
+cd "$QAB_DIR" || { echo "ERROR: query-agent-benchmarking not found at $QAB_DIR" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # Run the brute-force CLIP image retrieval

@@ -147,12 +147,15 @@ class CLIPImageSearchAgent:
             img = decode_image(value)
             tiles = self._create_tiles(img)
 
-            # Disable center crop so the full page (including header/footer)
-            # is encoded at low resolution rather than being discarded.
+            # Disable center crop and force exact 224×224 resize so the full
+            # page (including header/footer) is preserved rather than discarded.
+            # The image is squashed to fit — that is intentional for the
+            # whole-page view; grid tiles are already cropped regions.
             try:
                 tile_inputs = self.processor(
                     images=tiles, return_tensors="pt",
                     do_center_crop=False,
+                    size={"height": 224, "width": 224},
                 )
             except TypeError:
                 tile_inputs = self.processor(
