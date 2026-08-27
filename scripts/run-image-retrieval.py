@@ -137,6 +137,8 @@ class CLIPImageSearchAgent:
                 model_name, torch_dtype=torch.float32
             ).to(self.device).eval()
 
+        self.proj_dim = getattr(self.model.config, "projection_dim", None)
+
         print(f"Encoding {len(images)} images on {self.device} (tiles={num_tiles})...")
 
         # -- Encode each page into an overlapping grid of tiles -----------------
@@ -165,15 +167,24 @@ class CLIPImageSearchAgent:
 
             with torch.inference_mode():
                 vecs = self.model.get_image_features(**tile_inputs)
-                # Safe extraction: works for CLIPModelOutput and SiglipModelOutput.
-                # For CLIP, get_image_features returns a Tensor (projected 512-dim).
-                # If a model output is returned, prefer .image_embeds (post-projection).
-                if not isinstance(vecs, torch.Tensor):
-                    if hasattr(vecs, "image_embeds") and vecs.image_embeds is not None:
-                        vecs = vecs.image_embeds
-                    elif hasattr(vecs, "pooler_output"):
-                        vecs = vecs.pooler_output
-                vecs = vecs.float().cpu()
+
+            # Handle different return types across transformers versions.
+            # Some versions return BaseModelOutputWithPooling from get_image_features()
+            # when return_dict=True; extract the appropriate tensor.
+            if not isinstance(vecs, torch.Tensor):
+                if hasattr(vecs, "image_embeds") and vecs.image_embeds is not None:
+                    vecs = vecs.image_embeds
+                elif hasattr(vecs, "pooler_output"):
+                    vecs = vecs.pooler_output
+
+            vecs = vecs.float().cpu()
+
+            # Verify and fix projection: if we got pre-projection features
+            # (e.g. 768-dim for ViT-Large), apply visual_projection manually.
+            # CLIP's projection_dim is 512 for ViT-L/14.
+            if self.proj_dim and vecs.shape[-1] != self.proj_dim and hasattr(self.model, "visual_projection"):
+                with torch.inference_mode():
+                    vecs = self.model.visual_projection(vecs.to(self.device)).float().cpu()
 
             self.tile_to_doc.extend([doc_idx] * vecs.shape[0])
             all_vectors.append(vecs)
@@ -249,6 +260,12 @@ class CLIPImageSearchAgent:
                     text_vec = text_vec.text_embeds
                 elif hasattr(text_vec, "pooler_output"):
                     text_vec = text_vec.pooler_output
+
+            text_vec = text_vec.float()
+            # Same projection fix for text
+            if self.proj_dim and text_vec.shape[-1] != self.proj_dim and hasattr(self.model, "text_projection"):
+                with torch.inference_mode():
+                    text_vec = self.model.text_projection(text_vec.to(self.device)).float().cpu()
 
             text_vec = text_vec.float()
             if self.image_mean is not None:
