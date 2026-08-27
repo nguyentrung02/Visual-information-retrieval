@@ -170,8 +170,6 @@ class CLIPImageSearchAgent:
                 vecs = self.model.get_image_features(**tile_inputs)
 
             # Handle different return types across transformers versions.
-            # Some versions return BaseModelOutputWithPooling from get_image_features()
-            # when return_dict=True; extract the appropriate tensor.
             if not isinstance(vecs, torch.Tensor):
                 if hasattr(vecs, "image_embeds") and vecs.image_embeds is not None:
                     vecs = vecs.image_embeds
@@ -180,16 +178,19 @@ class CLIPImageSearchAgent:
 
             vecs = vecs.float().cpu()
 
-            # Verify and fix projection: if we got pre-projection features
-            # (e.g. 768-dim for ViT-Large), apply visual_projection manually.
-            # CLIP's projection_dim is 512 for ViT-L/14.
-            print(f"  DEBUG: vecs.shape={vecs.shape}, proj_dim={self.proj_dim}, "
-                  f"has visual_projection={hasattr(self.model, 'visual_projection')}, "
-                  f"has vision_model={hasattr(self.model, 'vision_model')}")
-            if self.proj_dim and vecs.shape[-1] != self.proj_dim and hasattr(self.model, "visual_projection"):
-                print(f"  Applying visual_projection: {vecs.shape[-1]} -> {self.proj_dim}")
-                with torch.inference_mode():
-                    vecs = self.model.visual_projection(vecs.to(self.device)).float().cpu()
+            # CLIP's get_image_features() may return UNPROJECTED features (768-dim)
+            # in some transformers versions. Apply visual_projection if needed.
+            debug_info = (f"  DEBUG: vecs={vecs.shape}, proj_dim={self.proj_dim}, "
+                          f"has vp={hasattr(self.model, 'visual_projection')}")
+            if self.proj_dim and vecs.shape[-1] != self.proj_dim:
+                if hasattr(self.model, "visual_projection"):
+                    debug_info += f" -> APPLYING visual_projection -> {self.proj_dim}"
+                    with torch.inference_mode():
+                        vecs = self.model.visual_projection(vecs.to(self.device)).float().cpu()
+                elif hasattr(self.model, "vision_model"):
+                    # Fallback: use vision_model pooler_output + manual projection
+                    debug_info += " -> using vision_model fallback"
+            print(debug_info)
 
             self.tile_to_doc.extend([doc_idx] * vecs.shape[0])
             all_vectors.append(vecs)
