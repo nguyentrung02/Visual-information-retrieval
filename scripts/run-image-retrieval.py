@@ -137,7 +137,10 @@ class CLIPImageSearchAgent:
                 model_name, torch_dtype=torch.float32
             ).to(self.device).eval()
 
+        # Get projection dimension from config or infer from projection layer
         self.proj_dim = getattr(self.model.config, "projection_dim", None)
+        if self.proj_dim is None and hasattr(self.model, "visual_projection"):
+            self.proj_dim = self.model.visual_projection.out_features
         print(f"  Model: {type(self.model).__name__}, proj_dim: {self.proj_dim}")
 
         print(f"Encoding {len(images)} images on {self.device} (tiles={num_tiles})...")
@@ -179,18 +182,16 @@ class CLIPImageSearchAgent:
             vecs = vecs.float().cpu()
 
             # CLIP's get_image_features() may return UNPROJECTED features (768-dim)
-            # in some transformers versions. Apply visual_projection if needed.
-            debug_info = (f"  DEBUG: vecs={vecs.shape}, proj_dim={self.proj_dim}, "
-                          f"has vp={hasattr(self.model, 'visual_projection')}")
+            # in some transformers versions. Apply visual_projection if the output
+            # dimension doesn't match the projection layer's output dimension.
             if self.proj_dim and vecs.shape[-1] != self.proj_dim:
                 if hasattr(self.model, "visual_projection"):
-                    debug_info += f" -> APPLYING visual_projection -> {self.proj_dim}"
+                    print(f"  Projection: {vecs.shape[-1]} -> {self.proj_dim}")
                     with torch.inference_mode():
                         vecs = self.model.visual_projection(vecs.to(self.device)).float().cpu()
                 elif hasattr(self.model, "vision_model"):
-                    # Fallback: use vision_model pooler_output + manual projection
-                    debug_info += " -> using vision_model fallback"
-            print(debug_info)
+                    pass  # fallback: no projection available
+            print(f"  DEBUG: vecs={vecs.shape}")
 
             self.tile_to_doc.extend([doc_idx] * vecs.shape[0])
             all_vectors.append(vecs)
