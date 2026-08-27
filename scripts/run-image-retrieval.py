@@ -151,7 +151,7 @@ class CLIPImageSearchAgent:
         print(f"Encoding {len(images)} images on {self.device} (tiles={num_tiles})...")
 
         # -- Encode each page into an overlapping grid of tiles -----------------
-        all_vectors = []       # list of (n_tiles_i, 512) tensors
+        all_vectors = []       # list of (n_tiles_i, proj_dim) tensors
         self.tile_to_doc = []  # document index for each row
 
         for doc_idx, value in enumerate(images):
@@ -188,8 +188,7 @@ class CLIPImageSearchAgent:
                     vecs = self.model.vision_proj(pooler_output)
                 else:
                     vecs = pooler_output
-                print(f"  DEBUG: vision_pooler={pooler_output.shape}, "
-                      f"projected={vecs.shape}")
+                vecs = vecs.float().cpu()
 
             self.tile_to_doc.extend([doc_idx] * vecs.shape[0])
             all_vectors.append(vecs)
@@ -264,15 +263,10 @@ class CLIPImageSearchAgent:
                 attention_mask=inputs.get("attention_mask"),
             )
             text_vec = text_outputs.pooler_output
-            print(f"  DEBUG text: pooler={text_vec.shape}", end="")
             if hasattr(self.model, "text_projection"):
                 text_vec = self.model.text_projection(text_vec)
-                print(f" -> projected={text_vec.shape}")
             elif hasattr(self.model, "text_proj"):
                 text_vec = self.model.text_proj(text_vec)
-                print(f" -> projected={text_vec.shape}")
-            else:
-                print()
 
             text_vec = text_vec.float()
             if self.image_mean is not None:
