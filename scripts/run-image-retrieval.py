@@ -138,6 +138,7 @@ class CLIPImageSearchAgent:
             ).to(self.device).eval()
 
         self.proj_dim = getattr(self.model.config, "projection_dim", None)
+        print(f"  Model: {type(self.model).__name__}, proj_dim: {self.proj_dim}")
 
         print(f"Encoding {len(images)} images on {self.device} (tiles={num_tiles})...")
 
@@ -182,7 +183,11 @@ class CLIPImageSearchAgent:
             # Verify and fix projection: if we got pre-projection features
             # (e.g. 768-dim for ViT-Large), apply visual_projection manually.
             # CLIP's projection_dim is 512 for ViT-L/14.
+            print(f"  DEBUG: vecs.shape={vecs.shape}, proj_dim={self.proj_dim}, "
+                  f"has visual_projection={hasattr(self.model, 'visual_projection')}, "
+                  f"has vision_model={hasattr(self.model, 'vision_model')}")
             if self.proj_dim and vecs.shape[-1] != self.proj_dim and hasattr(self.model, "visual_projection"):
+                print(f"  Applying visual_projection: {vecs.shape[-1]} -> {self.proj_dim}")
                 with torch.inference_mode():
                     vecs = self.model.visual_projection(vecs.to(self.device)).float().cpu()
 
