@@ -264,10 +264,15 @@ class CLIPImageSearchAgent:
                 attention_mask=inputs.get("attention_mask"),
             )
             text_vec = text_outputs.pooler_output
+            print(f"  DEBUG text: pooler={text_vec.shape}", end="")
             if hasattr(self.model, "text_projection"):
                 text_vec = self.model.text_projection(text_vec)
+                print(f" -> projected={text_vec.shape}")
             elif hasattr(self.model, "text_proj"):
                 text_vec = self.model.text_proj(text_vec)
+                print(f" -> projected={text_vec.shape}")
+            else:
+                print()
 
             text_vec = text_vec.float()
             if self.image_mean is not None:
