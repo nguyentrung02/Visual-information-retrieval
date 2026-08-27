@@ -73,12 +73,14 @@ python compare_methods.py
 Your SLURM account is `kisski-nlpbg` (a **KISSKI** project, not SCC).
 GPU work must be done on the Grete login node `glogin-gpu`.
 
+### Experiments (SCC GPU)
+
 ```bash
-# 1. SSH to the Grete GPU login node (NOT glogin/glogin10 which is CPU-only)
+# 1. SSH to the Grete GPU login node
 ssh u29949@glogin-gpu.hpc.gwdg.de
 
-# 2. Clone repos to $WORK
-cd $WORK/workspaces
+# 2. Clone repos to $HOME
+cd $HOME
 git clone https://github.com/nguyentrung02/Visual-information-retrieval.git
 git clone https://github.com/weaviate/query-agent-benchmarking.git
 
@@ -148,11 +150,20 @@ Each query has exactly one gold document, so Recall@K is binary per query.
 
 ### Why results are low overall
 
-Papers 3, 4, and 5 are 600+ pages long.  All pages within a paper share
-authors, terminology, and structure, making fine-grained page discrimination
-extremely hard for both lexical and dense methods.  The IRPAPERS benchmark
-(which inspired this work) used 166 short papers (~10 pages each), which are
-much easier to separate.
+Papers 3, 4, and 5 contain queries that are **abstract paraphrase-style**
+questions (e.g., *"what algebraic and topological property must the operator
+sequence $S_n$ satisfy"*), often with LaTeX math or symbolic notation. These
+share very few rare tokens with the target page text. In contrast, Papers 1, 2,
+6, and 7 questions tend to quote or closely paraphrase article titles and
+section headings, which BM25 matches directly via exact terms.
+
+Additionally, Papers 3, 4, and 5 are volumes of the **same journal** (*Journal
+of Fourier Analysis*), so they share terminology, author names, and notation.
+BM25 frequently retrieves the correct paper but struggles to discriminate the
+exact page within or across volumes. Length correlates with failure (longer
+papers → more similar pages → harder discrimination) but is not the mechanism —
+it is the **query construction + cross-volume vocabulary overlap** that drives
+0% Recall@1 for Papers 3–5.
 
 ---
 
@@ -208,7 +219,14 @@ identifies which volumes are hardest.
 
 | Method | Recall@1 | Recall@5 | Recall@20 |
 |--------|---------:|---------:|----------:|
-| CLIP ViT-B/32 | 0.6% | 1.7% | 4.4% |
+| CLIP ViT-B/32 (baseline, no fixes) | 0.6% | 1.7% | 4.4% |
+
+**After fixes (tiling + mean-centering + prompt template):** See
+`console/results/gdz-image-clip-vit-large-patch14-tiles3-centered-*.json`.
+The tiling encodes A4 pages as a 3×3 overlapping grid plus a whole-page view,
+raising effective resolution to ~80 DPI. Mean-centering reduces modality-gap
+hubness (top-50 pages hold <5% of top-20 slots vs 33% baseline). Prompt
+templates match CLIP's caption-style training distribution.
 
 ### Per-paper Recall@1 (BM25)
 
@@ -266,20 +284,29 @@ pattern.
 3. **Hybrid never dominates either alone method** because RRF with k=60
    dilutes strong lexical signals.  A weighted hybrid would likely improve.
 
-4. **CLIP is a weak baseline.**  The model is trained on natural images and
-   cannot distinguish fine-grained scientific content within pages from the
-   same paper.  ColPali (page-level patch embeddings) is the planned
-   improvement and requires GPU execution on the SCC.
+4. **CLIP is a weak baseline.** The model is trained on natural images, not
+   scientific documents. Two structural issues compound the gap:
+   (a) CLIP's default processor resizes A4 pages (2479×3508px) to 224×224 with
+       center-crop — destroying text legibility (≈27 DPI) and deleting the
+       title/page-number band; and (b) the image/text embedding cones are
+   mismatched (modality gap), causing hubness where a few "average" pages
+   dominate all rankings. Tiling (3×3 grid + whole page) and mean-centering
+   mitigate both, but CLIP cannot match lexical methods on fine-grained page
+   retrieval. ColPali (patch-level embeddings at native resolution) is the
+   planned improvement and requires GPU execution on the SCC.
 
-5. **Paper length is the strongest predictor of failure.**  Papers 3–5
-   (641+, 679+, 649 pages) have ~0% Recall@1 because within-document
-   ambiguity is overwhelming.
+5. **Query construction + cross-volume vocabulary overlap predict failure.**
+   Papers 3–5 (same journal, overlapping terminology) have ~0% Recall@1 not
+   because long papers are inherently harder — but because their queries are
+   abstract paraphrases with LaTeX that share rare tokens across volumes.
+   Length correlates with the outcome but is not the mechanism.
 
 ---
 
 ## Visualizations
 
-The per-paper recall chart clearly shows the paper-length effect:
+The per-paper recall chart shows the **query-construction + cross-volume overlap**
+effect rather than a pure length effect:
 
 ```
 Recall@1 by Paper (BM25)
@@ -294,6 +321,7 @@ Paper 5 (649p):  ───────── 0%
 
 Full per-query results with ranked lists are in
 `console/results/gdz-{bm25,vector,hybrid}-trial-1.json`.
+CLIP results are in `console/results/gdz-image-clip-vit-large-patch14-*.json`.
 
 ---
 
