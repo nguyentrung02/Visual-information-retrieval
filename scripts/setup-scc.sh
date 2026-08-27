@@ -65,13 +65,18 @@ MODEL_NAME="${MODEL_NAME:-openai/clip-vit-large-patch14}"
 python -c "
 import sys
 # Bypass CVE-2025-32434 torch.load check (torch>=2.6 not on cu121 index)
-for _m in list(sys.modules.values()):
-    if _m is not None and hasattr(_m, 'check_torch_load_is_safe'):
-        try: _m.check_torch_load_is_safe = lambda: None
-        except: pass
+_torch_v = tuple(int(x) for x in __import__('torch').__version__.split('+')[0].split('.')[:2])
+if _torch_v >= (2, 6):
+    for _m in list(sys.modules.values()):
+        if _m is not None and hasattr(_m, 'check_torch_load_is_safe'):
+            try: _m.check_torch_load_is_safe = lambda: None
+            except: pass
 from transformers import AutoModel, AutoProcessor
 print('Downloading $MODEL_NAME ...')
-AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32', attn_implementation='eager')
+try:
+    AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32', attn_implementation='eager')
+except TypeError:
+    AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32')
 AutoProcessor.from_pretrained('$MODEL_NAME')
 print('Done.')
 "
