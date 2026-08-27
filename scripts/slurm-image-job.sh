@@ -41,4 +41,5 @@ python -u "$SCRIPT_DIR/run-image-retrieval.py" \
     --max-docs 3021 \
     --max-queries 180 \
     --batch-size 64 \
+    --tiles 3 \
     --output-dir console/results

@@ -1,55 +1,59 @@
 """Run brute-force image-to-text retrieval on the GDZ dataset using CLIP.
 
-Implements a local SearchAgent that encodes images with CLIP, then performs
-cosine-similarity brute-force search against text queries. Results are
-evaluated through the query-agent-benchmarking library.
+Implements a local SearchAgent that encodes images with CLIP (with optional
+tiling and mean-centering), then performs cosine-similarity brute-force
+MaxSim search against text queries. Results are evaluated through the
+query-agent-benchmarking library.
+
+Key design choices (per supervisor feedback):
+  - Tiling: large A4 pages (2479x3508) are split into an overlapping grid
+    of tiles so CLIP sees legible text at ~80 DPI instead of 27 DPI.
+  - Mean-centering: removes the shared image-mean direction that causes hubness.
+  - Prompt template: wraps queries to match CLIP's caption-style training data.
 """
 
 import argparse
 import base64
 import io
-import json
-import os
 import sys
-import time
 import types
 from pathlib import Path
 
+import numpy as np
 import torch
 from datasets import load_dataset
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
-# Disable transformers' torch.load security check (CVE-2025-32434).
-# torch >= 2.6 is not available on the KISSKI SCC's cu121 index.
-# We load trusted HuggingFace weights from .bin checkpoint files — acceptable
-# because the model is from openai/ (a verified publisher) and not user-supplied.
-# Must patch in *every* module that imported the function by value.
-_safe_noop = lambda: None
-for _mod in list(sys.modules.values()):
-    if _mod is not None and hasattr(_mod, "check_torch_load_is_safe"):
-        try:
-            _mod.check_torch_load_is_safe = _safe_noop
-        except (AttributeError, TypeError):
-            pass
+# ---------------------------------------------------------------------------
+# torch.load CVE-2025-32434 compatibility shim
+# On torch >= 2.6, torch.load blocks .bin checkpoints unless weights_only=False.
+# The CLIP weights ship as .bin on the SCC's cu121 index. We load trusted
+# HuggingFace weights only (verified publisher openai/), so this is safe.
+# ---------------------------------------------------------------------------
+_torch_version = torch.__version__.split("+")[0]
+_torch_major = int(_torch_version.split(".")[0])
+_torch_minor = int(_torch_version.split(".")[1])
+if _torch_major >= 2 and _torch_minor >= 6:
+    _safe_noop = lambda: None
+    for _mod in list(sys.modules.values()):
+        if _mod is not None and hasattr(_mod, "check_torch_load_is_safe"):
+            try:
+                _mod.check_torch_load_is_safe = _safe_noop
+            except (AttributeError, TypeError):
+                pass
 
+# ---------------------------------------------------------------------------
+# Fake engram module — query-agent-benchmarking imports engram names at module
+# level but we never need them for brute-force image retrieval.
+# ---------------------------------------------------------------------------
 class _FakeEngramModule(types.ModuleType):
-    """Catch-all fake engram module — returns ``object`` for any attribute.
-
-    The installed query-agent-benchmarking may import various names from
-    ``engram`` (EngramClient, BM25Retrieval, FetchRetrieval, HybridRetrieval,
-    VectorRetrieval, ...).  We only need the import to succeed; the image
-    retrieval agent never calls into engram.
-    """
     def __getattr__(self, name):
         return object
 
-_fake_engram = _FakeEngramModule("engram")
-sys.modules.setdefault("engram", _fake_engram)
+sys.modules.setdefault("engram", _FakeEngramModule("engram"))
 
 import query_agent_benchmarking.internal.core.domain.metrics_config as _metrics_config
-
-_orig_resolve_metrics_profile = _metrics_config.resolve_metrics_profile
 
 
 def _patched_resolve_metrics_profile(dataset_name, extra_metrics=None):
@@ -75,11 +79,6 @@ def _patched_resolve_metrics_profile(dataset_name, extra_metrics=None):
 
 _metrics_config.resolve_metrics_profile = _patched_resolve_metrics_profile
 
-# Patch at the import site — ir_metrics_calculator.py does
-#   from ...metrics_config import resolve_metrics_profile
-# so patching metrics_config.resolve_metrics_profile alone is NOT enough;
-# the imported reference in ir_metrics_calculator's namespace still points
-# to the original (which raises ValueError for "GDZ").
 import query_agent_benchmarking.internal.adapters.metrics.ir_metrics_calculator as _ir_calc
 _ir_calc.resolve_metrics_profile = _patched_resolve_metrics_profile
 
@@ -90,6 +89,8 @@ from query_agent_benchmarking import (
     SearchAgent,
     run_search_eval,
 )
+
+import torch.nn.functional as F
 
 
 def decode_image(value: str | bytes) -> Image.Image:
@@ -102,7 +103,12 @@ def decode_image(value: str | bytes) -> Image.Image:
 
 
 class CLIPImageSearchAgent:
-    """Brute-force image-to-text retriever using CLIP embeddings."""
+    """Brute-force image-to-text retriever using CLIP embeddings.
+
+    Supports tiling (--tiles), mean-centering (--no-center), and prompt
+    templates (--prompt-template) to overcome CLIP's limitations on scientific
+    figures.
+    """
 
     def __init__(
         self,
@@ -110,9 +116,16 @@ class CLIPImageSearchAgent:
         document_ids: list[str],
         model_name: str = "openai/clip-vit-large-patch14",
         batch_size: int = 32,
+        num_tiles: int = 3,
+        center_embeddings: bool = True,
+        prompt_template: str = "a scanned page of a scientific paper about {query}",
     ):
         self.document_ids = document_ids
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.num_tiles = num_tiles
+        self.center_embeddings = center_embeddings
+        self.prompt_template = prompt_template
+
         self.processor = AutoProcessor.from_pretrained(model_name)
         try:
             self.model = AutoModel.from_pretrained(
@@ -124,39 +137,131 @@ class CLIPImageSearchAgent:
                 model_name, torch_dtype=torch.float32
             ).to(self.device).eval()
 
-        print(f"Encoding {len(images)} images on {self.device}...")
-        vectors = []
-        with torch.inference_mode():
-            for start in range(0, len(images), batch_size):
-                batch = [
-                    decode_image(value)
-                    for value in images[start : start + batch_size]
-                ]
-                inputs = self.processor(images=batch, return_tensors="pt")
-                inputs = {k: v.to(self.device) for k, v in inputs.items()}
-                vecs = self.model.get_image_features(**inputs)
-                # transformers 4.56 returns BaseModelOutputWithPooling;
-                # .pooler_output is already the projected CLIP embedding
+        print(f"Encoding {len(images)} images on {self.device} (tiles={num_tiles})...")
+
+        # -- Encode each page into an overlapping grid of tiles -----------------
+        all_vectors = []       # list of (n_tiles_i, 512) tensors
+        self.tile_to_doc = []  # document index for each row
+
+        for doc_idx, value in enumerate(images):
+            img = decode_image(value)
+            tiles = self._create_tiles(img)
+
+            # Disable center crop so the full page (including header/footer)
+            # is encoded at low resolution rather than being discarded.
+            try:
+                tile_inputs = self.processor(
+                    images=tiles, return_tensors="pt",
+                    do_center_crop=False,
+                )
+            except TypeError:
+                tile_inputs = self.processor(
+                    images=tiles, return_tensors="pt",
+                )
+            tile_inputs = {k: v.to(self.device) for k, v in tile_inputs.items()}
+
+            with torch.inference_mode():
+                vecs = self.model.get_image_features(**tile_inputs)
+                # Safe extraction: works for CLIPModelOutput and SiglipModelOutput.
+                # For CLIP, get_image_features returns a Tensor (projected 512-dim).
+                # If a model output is returned, prefer .image_embeds (post-projection).
                 if not isinstance(vecs, torch.Tensor):
-                    vecs = vecs.pooler_output
-                vectors.append(vecs.cpu())
-        self.image_embeddings = torch.nn.functional.normalize(
-            torch.cat(vectors).float(), dim=1
-        )
+                    if hasattr(vecs, "image_embeds") and vecs.image_embeds is not None:
+                        vecs = vecs.image_embeds
+                    elif hasattr(vecs, "pooler_output"):
+                        vecs = vecs.pooler_output
+                vecs = vecs.float().cpu()
+
+            self.tile_to_doc.extend([doc_idx] * vecs.shape[0])
+            all_vectors.append(vecs)
+
+            if (doc_idx + 1) % 200 == 0:
+                print(f"  Encoded {doc_idx + 1}/{len(images)} pages "
+                      f"({sum(v.shape[0] for v in all_vectors)} tiles so far)")
+
+        raw = torch.cat(all_vectors).float()  # (total_tiles, dim)
+
+        # -- Mean-centering to reduce modality-gap hubness --------------------
+        if center_embeddings:
+            self.image_mean = raw.mean(dim=0, keepdim=True)
+            raw = raw - self.image_mean
+            print(f"  Mean-centered {raw.shape[0]} tile embeddings (hubness reduction)")
+        else:
+            self.image_mean = None
+
+        self.image_embeddings = F.normalize(raw, dim=1)
+        self.tile_to_doc = np.array(self.tile_to_doc, dtype=np.int64)
+        print(f"Total tiles: {raw.shape[0]}, documents: {len(images)}")
         print(f"Image embeddings shape: {self.image_embeddings.shape}")
 
+    def _create_tiles(self, image: Image.Image) -> list[Image.Image]:
+        """Split a large page image into an overlapping grid plus the whole page."""
+        if self.num_tiles <= 1:
+            return [image]
+
+        w, h = image.size
+        tiles = [image]  # whole-page view (no center crop)
+
+        tile_w = w // self.num_tiles
+        tile_h = h // self.num_tiles
+        if tile_w == 0 or tile_h == 0:
+            return [image]
+
+        overlap = 0.25
+        stride_w = max(1, int(tile_w * (1 - overlap)))
+        stride_h = max(1, int(tile_h * (1 - overlap)))
+
+        y = 0
+        while y <= h - tile_h:
+            x = 0
+            while x <= w - tile_w:
+                tiles.append(image.crop((x, y, x + tile_w, y + tile_h)))
+                if x + tile_w >= w:
+                    break
+                x += stride_w
+            if y + tile_h >= h:
+                break
+            y += stride_h
+
+        return tiles
+
+    def _format_prompt(self, query: str) -> str:
+        if self.prompt_template:
+            return self.prompt_template.format(query=query)
+        return query
+
     def run(self, query: str, tenant=None) -> list[ObjectID]:
+        prompt = self._format_prompt(query)
+
         with torch.inference_mode():
-            inputs = self.processor(text=[query], return_tensors="pt", padding=True)
+            inputs = self.processor(
+                text=[prompt], return_tensors="pt", padding=True,
+                truncation=True, max_length=77,
+            )
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
             text_vec = self.model.get_text_features(**inputs)
-            # transformers 4.56 returns BaseModelOutputWithPooling;
-            # .pooler_output is already the projected CLIP embedding
-            if not isinstance(text_vec, torch.Tensor):
-                text_vec = text_vec.pooler_output
-            text_vec = torch.nn.functional.normalize(text_vec.float(), dim=1).cpu()
 
-        scores = (self.image_embeddings @ text_vec.T).squeeze(1).tolist()
+            if not isinstance(text_vec, torch.Tensor):
+                if hasattr(text_vec, "text_embeds") and text_vec.text_embeds is not None:
+                    text_vec = text_vec.text_embeds
+                elif hasattr(text_vec, "pooler_output"):
+                    text_vec = text_vec.pooler_output
+
+            text_vec = text_vec.float()
+            if self.image_mean is not None:
+                text_vec = text_vec - self.image_mean
+            text_vec = F.normalize(text_vec, dim=1).cpu()
+
+        # Cosine similarity per tile, then MaxSim per document
+        tile_scores = (self.image_embeddings @ text_vec.T).squeeze(1)  # (total_tiles,)
+
+        if self.num_tiles == 1 or len(self.tile_to_doc) == len(self.document_ids):
+            scores = tile_scores.tolist()
+        else:
+            scores_arr = np.full(len(self.document_ids), float("-inf"))
+            np.maximum.at(scores_arr, self.tile_to_doc, tile_scores.cpu().numpy())
+            scores = scores_arr.tolist()
+
         ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
         return [ObjectID(object_id=self.document_ids[i]) for i in ranked]
 
@@ -191,11 +296,18 @@ def load_gdz_dataset():
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default="openai/clip-vit-base-patch32")
+    parser.add_argument("--model", default="openai/clip-vit-large-patch14")
     parser.add_argument("--max-docs", type=int, default=3021)
     parser.add_argument("--max-queries", type=int, default=180)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--output-dir", type=Path, default=Path(__file__).resolve().parent / "console" / "results")
+    parser.add_argument("--tiles", type=int, default=3,
+                        help="Grid size for tiling (0 or 1 = whole page, 3 = 3x3 grid + whole)")
+    parser.add_argument("--no-center", action="store_true",
+                        help="Disable mean-centering (for ablation)")
+    parser.add_argument("--prompt-template", type=str, default=None,
+                        help="Override prompt template (default: 'a scanned page of a scientific paper about {query}')")
+    parser.add_argument("--output-dir", type=Path,
+                        default=Path(__file__).resolve().parent.parent / "console" / "results")
     args = parser.parse_args()
 
     docs, queries = load_gdz_dataset()
@@ -221,14 +333,25 @@ def main() -> None:
         id_key="dataset_id",
     )
 
+    prompt_template = args.prompt_template
+    if prompt_template is None and args.tiles > 0:
+        prompt_template = "a scanned page of a scientific paper about {query}"
+
     agent = CLIPImageSearchAgent(
         images=image_values,
         document_ids=document_ids,
         model_name=args.model,
         batch_size=args.batch_size,
+        num_tiles=args.tiles,
+        center_embeddings=not args.no_center,
+        prompt_template=prompt_template,
     )
 
     output_name = f"gdz-image-{args.model.split('/')[-1]}"
+    if args.tiles > 1:
+        output_name += f"-tiles{args.tiles}"
+    if not args.no_center:
+        output_name += "-centered"
     run_search_eval(
         docs_collection=docs_collection,
         queries=in_memory_queries,
