@@ -175,28 +175,21 @@ class CLIPImageSearchAgent:
             tile_inputs = {k: v.to(self.device) for k, v in tile_inputs.items()}
 
             with torch.inference_mode():
-                vecs = self.model.get_image_features(**tile_inputs)
-
-            # Handle different return types across transformers versions.
-            if not isinstance(vecs, torch.Tensor):
-                if hasattr(vecs, "image_embeds") and vecs.image_embeds is not None:
-                    vecs = vecs.image_embeds
-                elif hasattr(vecs, "pooler_output"):
-                    vecs = vecs.pooler_output
-
-            vecs = vecs.float().cpu()
-
-            # CLIP's get_image_features() may return UNPROJECTED features (768-dim)
-            # in some transformers versions. Apply visual_projection if the output
-            # dimension doesn't match the projection layer's output dimension.
-            if self.proj_dim and vecs.shape[-1] != self.proj_dim:
+                # Call vision_model + projection directly to bypass
+                # get_image_features() (which may return unprojected features
+                # in some transformers versions).
+                vision_outputs = self.model.vision_model(
+                    pixel_values=tile_inputs["pixel_values"]
+                )
+                pooler_output = vision_outputs.pooler_output
                 if hasattr(self.model, "visual_projection"):
-                    print(f"  Projection: {vecs.shape[-1]} -> {self.proj_dim}")
-                    with torch.inference_mode():
-                        vecs = self.model.visual_projection(vecs.to(self.device)).float().cpu()
-                elif hasattr(self.model, "vision_model"):
-                    pass  # fallback: no projection available
-            print(f"  DEBUG: vecs={vecs.shape}")
+                    vecs = self.model.visual_projection(pooler_output)
+                elif hasattr(self.model, "vision_proj"):
+                    vecs = self.model.vision_proj(pooler_output)
+                else:
+                    vecs = pooler_output
+                print(f"  DEBUG: vision_pooler={pooler_output.shape}, "
+                      f"projected={vecs.shape}")
 
             self.tile_to_doc.extend([doc_idx] * vecs.shape[0])
             all_vectors.append(vecs)
@@ -265,20 +258,18 @@ class CLIPImageSearchAgent:
                 truncation=True, max_length=77,
             )
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            text_vec = self.model.get_text_features(**inputs)
-
-            if not isinstance(text_vec, torch.Tensor):
-                if hasattr(text_vec, "text_embeds") and text_vec.text_embeds is not None:
-                    text_vec = text_vec.text_embeds
-                elif hasattr(text_vec, "pooler_output"):
-                    text_vec = text_vec.pooler_output
+            # Call text_model + projection directly for the same reason as images.
+            text_outputs = self.model.text_model(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs.get("attention_mask"),
+            )
+            text_vec = text_outputs.pooler_output
+            if hasattr(self.model, "text_projection"):
+                text_vec = self.model.text_projection(text_vec)
+            elif hasattr(self.model, "text_proj"):
+                text_vec = self.model.text_proj(text_vec)
 
             text_vec = text_vec.float()
-            # Same projection fix for text
-            if self.proj_dim and text_vec.shape[-1] != self.proj_dim and hasattr(self.model, "text_projection"):
-                with torch.inference_mode():
-                    text_vec = self.model.text_projection(text_vec.to(self.device)).float().cpu()
-
             if self.image_mean is not None:
                 text_vec = text_vec - self.image_mean
             text_vec = F.normalize(text_vec, dim=1).cpu()
