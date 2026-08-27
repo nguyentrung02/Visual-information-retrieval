@@ -274,7 +274,6 @@ class CLIPImageSearchAgent:
                 with torch.inference_mode():
                     text_vec = self.model.text_projection(text_vec.to(self.device)).float().cpu()
 
-            text_vec = text_vec.float()
             if self.image_mean is not None:
                 text_vec = text_vec - self.image_mean
             text_vec = F.normalize(text_vec, dim=1).cpu()
