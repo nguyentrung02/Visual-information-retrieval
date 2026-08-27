@@ -59,6 +59,12 @@ fi
 # node can use them with HF_HUB_OFFLINE=1.
 # Default: openai/clip-vit-large-patch14 (3x larger than base, much better recall)
 # Alternatives: google/siglip-base-patch16-224, laion/CLIP-ViT-H-14-laion2B-s32B-b76K
+
+# The login node HAS internet — disable offline mode (may be set globally
+# from a previous SLURM job's environment). Compute nodes use offline later.
+unset HF_HUB_OFFLINE
+unset TRANSFORMERS_OFFLINE
+
 export HF_HOME="${HF_HOME:-$WORK/.cache/huggingface}"
 mkdir -p "$HF_HOME"
 
@@ -75,16 +81,17 @@ if _torch_v >= (2, 6):
 from transformers import AutoModel, AutoProcessor
 print('Downloading $MODEL_NAME ...')
 try:
-    AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32', attn_implementation='eager')
+    AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32', attn_implementation='eager', local_files_only=False)
 except TypeError:
-    AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32')
-AutoProcessor.from_pretrained('$MODEL_NAME')
+    AutoModel.from_pretrained('$MODEL_NAME', torch_dtype='float32', local_files_only=False)
+AutoProcessor.from_pretrained('$MODEL_NAME', local_files_only=False)
 print('Done.')
 "
 
 # --- 5. Pre-download the GDZ dataset on the login node ----------------------
 # The compute nodes run with HF_HUB_OFFLINE=1, so all datasets must be cached
 # under $WORK/.cache/huggingface (not the default ~/.cache).
+# (offline mode already unset in step 4 — login node has internet)
 python -c "
 from datasets import load_dataset
 print('Caching Trungdaik/Visual_information_retrieval ...')
