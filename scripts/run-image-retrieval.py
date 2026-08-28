@@ -268,10 +268,10 @@ class CLIPImageSearchAgent:
             elif hasattr(self.model, "text_proj"):
                 text_vec = self.model.text_proj(text_vec)
 
-            text_vec = text_vec.float()
+            text_vec = text_vec.float().cpu()
             if self.image_mean is not None:
                 text_vec = text_vec - self.image_mean
-            text_vec = F.normalize(text_vec, dim=1).cpu()
+            text_vec = F.normalize(text_vec, dim=1)
 
         # Cosine similarity per tile, then MaxSim per document
         tile_scores = (self.image_embeddings @ text_vec.T).squeeze(1)  # (total_tiles,)
