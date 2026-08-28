@@ -31,6 +31,19 @@ export TRANSFORMERS_OFFLINE=1
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Fallback: if run-image-retrieval.py not found via BASH_SOURCE
+# (happens when sbatch script is in /tmp/ which isn't on compute nodes)
+if [ ! -f "$SCRIPT_DIR/run-image-retrieval.py" ]; then
+    for _fallback in \
+        "${HOME}/Visual-information-retrieval/scripts" \
+        "${PROJECT}/workspaces/Visual-information-retrieval/scripts"; do
+        if [ -f "$_fallback/run-image-retrieval.py" ]; then
+            SCRIPT_DIR="$_fallback"
+            break
+        fi
+    done
+fi
+
 # Resolve QAB dir: explicit override > $PROJECT/workspaces > sibling dir
 if [ -n "${QAB_DIR:-}" ]; then
     :
