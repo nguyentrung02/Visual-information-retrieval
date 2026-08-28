@@ -355,7 +355,7 @@ def main() -> None:
     )
 
     prompt_template = args.prompt_template
-    if prompt_template is None and args.tiles > 0:
+    if prompt_template is None:
         prompt_template = "a scanned page of a scientific paper about {query}"
 
     agent = CLIPImageSearchAgent(
