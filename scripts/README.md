@@ -1,7 +1,8 @@
 # Visual Information Retrieval — Scripts
 
 This directory contains all scripts for the GDZ visual information retrieval
-benchmark.  Results are saved to `console/results/`.
+benchmark.  Results are saved to `scripts/results/` (CLIP) and
+`console/results/` (text retrieval via Weaviate).
 
 ## Files
 
