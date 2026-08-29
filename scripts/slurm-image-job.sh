@@ -60,6 +60,8 @@ cd "$QAB_DIR" || { echo "ERROR: query-agent-benchmarking not found at $QAB_DIR" 
 # ---------------------------------------------------------------------------
 # Run the brute-force CLIP image retrieval
 # Uses cosine similarity — no Weaviate required at runtime.
+# Edit the lines below to change tiling, centering, prompt template, or
+# output filename for each ablation variant.
 # ---------------------------------------------------------------------------
 python -u "$SCRIPT_DIR/run-image-retrieval.py" \
     --model openai/clip-vit-large-patch14 \
@@ -67,4 +69,7 @@ python -u "$SCRIPT_DIR/run-image-retrieval.py" \
     --max-queries 180 \
     --batch-size 64 \
     --tiles 3 \
+    --no-center \
+    --prompt-template "a scanned page of a scientific paper about {query}" \
+    --output-name gdz-image-v4-tiles-prompt-nocenter \
     --output-dir console/results

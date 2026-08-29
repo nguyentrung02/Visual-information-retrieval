@@ -329,6 +329,8 @@ def main() -> None:
                         help="Override prompt template (default: 'a scanned page of a scientific paper about {query}')")
     parser.add_argument("--output-dir", type=Path,
                         default=Path(__file__).resolve().parent.parent / "console" / "results")
+    parser.add_argument("--output-name", type=str, default=None,
+                        help="Override output filename (default: auto-generated from model+tiles+centered)")
     args = parser.parse_args()
 
     docs, queries = load_gdz_dataset()
@@ -368,11 +370,14 @@ def main() -> None:
         prompt_template=prompt_template,
     )
 
-    output_name = f"gdz-image-{args.model.split('/')[-1]}"
-    if args.tiles > 1:
-        output_name += f"-tiles{args.tiles}"
-    if not args.no_center:
-        output_name += "-centered"
+    if args.output_name:
+        output_name = args.output_name
+    else:
+        output_name = f"gdz-image-{args.model.split('/')[-1]}"
+        if args.tiles > 1:
+            output_name += f"-tiles{args.tiles}"
+        if not args.no_center:
+            output_name += "-centered"
     run_search_eval(
         docs_collection=docs_collection,
         queries=in_memory_queries,
