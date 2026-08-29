@@ -1,0 +1,46 @@
+{
+  "top_k": 20,
+  "num_queries": 180,
+  "hubness_metrics": {
+    "BM25 (baseline)": {
+      "distinct_pages": 1255,
+      "total_slots": 3600,
+      "n_queries": 180,
+      "top50_share": 0.165,
+      "mean_pairwise_overlap": 0.014022184865577087,
+      "pair_count": 16110
+    },
+    "Old CLIP B/32 (CPU)": {
+      "distinct_pages": 739,
+      "total_slots": 3600,
+      "n_queries": 180,
+      "top50_share": 0.3322222222222222,
+      "mean_pairwise_overlap": 0.039501008053008844,
+      "pair_count": 16110
+    },
+    "V1 (no centering, no tiles)": {
+      "distinct_pages": 1139,
+      "total_slots": 3600,
+      "n_queries": 180,
+      "top50_share": 0.21416666666666667,
+      "mean_pairwise_overlap": 0.018936323847485823,
+      "pair_count": 16110
+    },
+    "V2 (centering, no tiles)": {
+      "distinct_pages": 105,
+      "total_slots": 3600,
+      "n_queries": 180,
+      "top50_share": 0.935,
+      "mean_pairwise_overlap": 0.38311512692735755,
+      "pair_count": 16110
+    },
+    "V4 (tiling + centering)": {
+      "distinct_pages": 196,
+      "total_slots": 3600,
+      "n_queries": 180,
+      "top50_share": 0.8205555555555556,
+      "mean_pairwise_overlap": 0.28533722943261725,
+      "pair_count": 16110
+    }
+  }
+}
