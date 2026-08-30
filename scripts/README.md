@@ -47,14 +47,3 @@ squeue --me              # monitor
 
 See the main [README.md](../README.md) for full documentation, results, and
 references.
-
-## Known Issues & Patches
-
-The published `query-agent-benchmarking` package requires two patches.
-Install from source (`pip install -e path/to/query-agent-benchmarking`) or
-apply manually:
-
-1. `engram_dspy_agent.py` — change `from engram import RetrievalConfig` to
-   `from engram import RetrievalConfigModel as RetrievalConfig`.
-2. `metrics_config.py` — add a fallback to default metrics for unknown
-   dataset names (e.g. `GDZ`).

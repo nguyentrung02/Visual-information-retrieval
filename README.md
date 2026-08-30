@@ -70,16 +70,26 @@ python compare_methods.py
 
 ### 5. Run on the GWDG SCC (GPU)
 
-Your SLURM account is `kisski-nlpbg` (a **KISSKI** project, not SCC).
-GPU work must be done on the Grete login node `glogin-gpu`.
+GPU work must be done on the Grete login node. Your SLURM project account
+determines which partitions and filesystems are available.
 
 ### Experiments (SCC GPU)
 
 ```bash
 # 1. SSH to the Grete GPU login node
-ssh u29949@glogin-gpu.hpc.gwdg.de
+ssh -i <key-file> <username>@glogin-gpu.hpc.gwdg.de
 
-# 2. Clone repos to $HOME
+## AI-Usage Disclosure
+
+This project was developed with assistance from an AI coding assistant. The
+AI helped with: codebase navigation, SLURM script configuration, bug fixes in
+the CLIP retrieval pipeline, hubness analysis implementation, and plot
+generation. All research decisions, experimental design, and result
+interpretation were made by the project members.
+
+Clone repos to `$HOME`
+
+```bash
 cd $HOME
 git clone https://github.com/nguyentrung02/Visual-information-retrieval.git
 git clone https://github.com/weaviate/query-agent-benchmarking.git
@@ -88,7 +98,7 @@ git clone https://github.com/weaviate/query-agent-benchmarking.git
 cd Visual-information-retrieval
 bash scripts/setup-scc.sh
 
-# 4. Submit the image retrieval job (partition: kisski, account: kisski-nlpbg)
+# 4. Submit the image retrieval job
 source activate gdz-retrieval
 sbatch scripts/slurm-image-job.sh
 
