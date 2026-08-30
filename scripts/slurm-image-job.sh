@@ -72,4 +72,4 @@ python -u "$SCRIPT_DIR/run-image-retrieval.py" \
     --no-center \
     --prompt-template "a scanned page of a scientific paper about {query}" \
     --output-name gdz-image-v4-tiles-prompt-nocenter \
-    --output-dir console/results
+    --output-dir "$SCRIPT_DIR/results"

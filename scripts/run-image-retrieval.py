@@ -328,7 +328,7 @@ def main() -> None:
     parser.add_argument("--prompt-template", type=str, default=None,
                         help="Override prompt template (default: 'a scanned page of a scientific paper about {query}')")
     parser.add_argument("--output-dir", type=Path,
-                        default=Path(__file__).resolve().parent.parent / "console" / "results")
+                        default=Path(__file__).resolve().parent / "results")
     parser.add_argument("--output-name", type=str, default=None,
                         help="Override output filename (default: auto-generated from model+tiles+centered)")
     args = parser.parse_args()
