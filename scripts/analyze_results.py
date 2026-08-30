@@ -58,9 +58,10 @@ def failure_modes(result: dict) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--text", type=Path, default=Path("console/results/gdz-text-local.json"))
-    parser.add_argument("--image", type=Path, default=Path("console/results/gdz-image-full-local-v2.json"))
-    parser.add_argument("--output", type=Path, default=Path("own-proj/results/analysis.json"))
+    parser.add_argument("--text", type=Path, default=Path("scripts/results/gdz-text-local.json"))
+    parser.add_argument("--image", type=Path, default=Path("scripts/results/gdz-image-full-local-v2.json"))
+    parser.add_argument("--output", type=Path,
+                        default=Path(__file__).resolve().parent / "results" / "analysis.json")
     args = parser.parse_args()
 
     text = load(args.text)

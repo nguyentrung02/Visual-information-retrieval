@@ -14,8 +14,8 @@ venv/
 data/PDFs/
 
 # Large result files (>5 MB) — full-ranking JSON per query
-console/results/*.json
-!console/results/.gitkeep
+scripts/results/*.json
+!scripts/results/.gitkeep
 
 # IDE / OS
 .vscode/

@@ -27,7 +27,7 @@ export TRANSFORMERS_OFFLINE=1
 # Locate directories on the compute node.
 # Visual-information-retrieval is at: $HOME/Visual-information-retrieval
 # query-agent-benchmarking is at:     $PROJECT/workspaces/query-agent-benchmarking
-# Results land in:                    <qab>/console/results/
+# Results land in:                    $SCRIPT_DIR/results/
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
