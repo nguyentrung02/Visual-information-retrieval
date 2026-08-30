@@ -376,7 +376,8 @@ Full per-query results with ranked lists are in
 Pre-computed recall for Vector/Hybrid is in `scripts/results/method-comparison.json`.
 
 To regenerate the comparison plots (Recall@K bar chart, rank distribution,
-query latency, success heatmap) with all methods side-by-side:
+query latency, success heatmap, complementarity) with all methods
+side-by-side, see `scripts/plots/README.md` for details. Quick command:
 
 ```bash
 python scripts/plot_results.py \
