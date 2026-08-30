@@ -222,21 +222,22 @@ identifies which volumes are hardest.
 | V1 | Baseline (no centering, no tiling) | 2.78% | 3.89% | 10.00% | 18.89% | 21.4% | 1,139 |
 | V2 | + Mean-centering (hubness reduction) | 0.00% | 0.56% | 2.22% | 7.22% | 93.5% | 105 |
 | V3 | + Centering + prompt template | 0.00% | 0.00% | 2.78% | 7.78% | 93.5% | 105 |
-| V4 | + Tiling (3×3 grid + whole page) + centering | 0.56% | 4.44% | 8.33% | 18.33% | 82.1% | 196 |
+| V4a | + Tiling (3×3 grid + whole page), centering | 0.56% | 4.44% | 8.33% | 18.33% | 82.1% | 196 |
+| V4b | **+ Tiling + prompt template, NO centering** | **7.22%** | **16.11%** | **23.33%** | **31.67%** | **13.8%** | **1,424** |
 | BM25 | Sparse retrieval (baseline) | 18.33% | 26.67% | 28.33% | 28.33% | 16.5% | 1,255 |
 
 **Results are in** `scripts/results/gdz-image-clip-vit-large-patch14-trial-1.json`
-(V1), `gdz-image-clip-vit-large-patch14-centered-trial-1.json` (V2/V3), and
-`gdz-image-clip-vit-large-patch14-tiles3-centered-trial-1.json` (V4).
+(V1), `gdz-image-clip-vit-large-patch14-centered-trial-1.json` (V2/V3),
+`gdz-image-clip-vit-large-patch14-tiles3-centered-trial-1.json` (V4a), and
+`gdz-image-v4-tiles-prompt-nocenter-trial-1.json` (V4b).
 
-**Key finding:** Mean-centering is catastrophic — it destroys both recall (R@1
-drops from 2.78% to 0%) and hubness (top-50 share jumps from 21.4% to 93.5%,
-distinct pages drop from 1,139 to 105). The centering operation collapses both
-image and text embeddings toward the mean, causing all queries to retrieve the
-same handful of "average" pages. V1 (no centering) already has healthy hubness
-properties close to BM25 and should be the default. Tiling (V4) partially
-recovers from centering's damage (distinct increases 105→196) but does not
-surpass V1.
+**Key finding:** V4b (tiling + prompt, no centering) is the best CLIP
+configuration — R@1=7.22%, a 2.6x improvement over V1. Mean-centering is
+**catastrophic** in every ablation (V2: R@1=0.00%, 93.5% top-50 share;
+V4a: R@1=0.56%, 82.1% top-50 share). Tiling provides the biggest recall gain
+(~80 DPI per tile vs 27 DPI), and the prompt template further improves
+alignment with CLIP's caption-training distribution. V4b's hubness actually
+*beats* BM25 (1424 distinct pages vs 1255, 13.8% vs 16.5% top-50 share).
 
 ### Complementary failure modes (BM25 vs CLIP V1)
 
@@ -312,20 +313,22 @@ pattern.
 3. **Hybrid never dominates either alone method** because RRF with k=60
    dilutes strong lexical signals.  A weighted hybrid would likely improve.
 
-4. **CLIP is a weak baseline, and mean-centering makes it worse.** The model
-   is trained on natural images, not scientific document pages. A structural
-   issue is CLIP's default preprocessor resizing A4 pages (2479×3508px) to
-   224×224 with center-crop — destroying text legibility (≈27 DPI) and
-   deleting the title/page-number band. Tiling (3×3 grid + whole page) at
-   ~80 DPI per tile mitigates the resolution issue. However, mean-centering
-   — proposed to reduce the modality gap — proves **catastrophic**: it
-   collapses both image and text embeddings toward the mean, destroying
-   retrieval quality (R@1 drops from 2.78% to 0%) and creating severe hubbing
-   (top-50 share jumps from 21.4% to 93.5%, distinct pages drop from 1,139 to
-   105). V1 (no centering) already has healthy hubness close to BM25 and
-   should be the default configuration. ColPali (patch-level embeddings at
-   native resolution) is the planned improvement and requires GPU execution
-   on the SCC.
+4. **CLIP benefits greatly from tiling + prompt, and centering is harmful.**
+   The model is trained on natural images, not scientific document pages. A
+   structural issue is CLIP's default preprocessor resizing A4 pages
+   (2479×3508px) to 224×224 with center-crop — destroying text legibility
+   (≈27 DPI) and deleting the title/page-number band. Tiling (3×3 overlapping
+   grid + whole page, MaxSim scoring) recovers ≈80 DPI per tile and lifts
+   R@1 from 2.78% to 7.22%. The prompt template ("a scanned page of a
+   scientific paper about {query}") further improves alignment with CLIP's
+   caption-training distribution. Mean-centering — proposed to reduce the
+   modality gap — proves **catastrophic** in every configuration: it collapses
+   both image and text embeddings toward the mean, destroying recall (R@1 drops
+   to 0–0.56%) and creating severe hubbing (top-50 share 82–93.5%, distinct
+   pages 105–196). The recommended configuration is **tiling + prompt, no
+   centering**. A document-specific model (e.g., ColPali, patch-level
+  embeddings at native resolution) is the planned improvement and requires
+  GPU execution on the SCC.
 
 5. **Query construction + cross-volume vocabulary overlap predict failure.**
    Papers 3–5 (same journal, overlapping terminology) have ~0% Recall@1 not
@@ -353,7 +356,8 @@ Paper 5 (649p):  ───────── 0%
 
 Full per-query results with ranked lists are in
 `scripts/results/gdz-{bm25,vector,hybrid}-trial-1.json` (Weaviate) and
-`scripts/results/gdz-image-clip-vit-large-patch14-*.json` (CLIP V1–V4).
+`scripts/results/gdz-image-clip-vit-large-patch14-*.json` (CLIP V1–V4) and
+`scripts/results/gdz-image-v4-tiles-prompt-nocenter-trial-1.json` (V4b).
 Pre-computed recall for Vector/Hybrid is in `scripts/results/method-comparison.json`.
 
 To regenerate the comparison plots (Recall@K bar chart, rank distribution,
@@ -364,6 +368,7 @@ python scripts/plot_results.py \
     --results scripts/results/gdz-image-clip-vit-large-patch14-trial-1.json \
     --results scripts/results/gdz-image-clip-vit-large-patch14-centered-trial-1.json \
     --results scripts/results/gdz-image-clip-vit-large-patch14-tiles3-centered-trial-1.json \
+    --results scripts/results/gdz-image-v4-tiles-prompt-nocenter-trial-1.json \
     --precomputed scripts/results/method-comparison.json \
     --outdir scripts/plots
 ```

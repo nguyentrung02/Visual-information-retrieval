@@ -41,6 +41,14 @@
       "top50_share": 0.8205555555555556,
       "mean_pairwise_overlap": 0.28533722943261725,
       "pair_count": 16110
+    },
+    "V4 (tiling + prompt, no centering)": {
+      "distinct_pages": 1424,
+      "total_slots": 3600,
+      "n_queries": 180,
+      "top50_share": 0.138,
+      "mean_pairwise_overlap": 0.011,
+      "pair_count": 16110
     }
   }
 }
