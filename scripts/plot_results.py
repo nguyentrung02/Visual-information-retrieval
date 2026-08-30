@@ -4,7 +4,7 @@
 Reads either trial JSON files (*-trial-1.json) or metrics JSON files
 (*-trial-1-metrics.json) and creates diagnostic plots:
 
-  1. recall_bar.png      — Recall@1/5/20 bar chart comparing all methods
+  1. recall_comparison.png — Recall@K bar chart comparing all methods (replaces old recall_bar.png)
   2. rank_dist.png       — Histogram of ground-truth rank positions
   3. query_latency.png   — Boxplot of per-query latency
   4. success_heatmap.png — Per-query hit/miss at k=1,5,20,50
@@ -206,7 +206,9 @@ def plot_recall_comparison(loaders, outdir):
                 stds.append(0.0)
         offset = (i - n / 2 + 0.5) * width
         color = colors[i % len(colors)]
-        ax.bar(x + offset, means, width, yerr=stds, label=ldr.label,
+        # Only show error bars when std is non-zero to avoid zero-width caps
+        yerr = np.array(stds) if any(s > 0 for s in stds) else None
+        ax.bar(x + offset, means, width, yerr=yerr, label=ldr.label,
                capsize=3, color=color)
 
     ax.set_xticks(x)
@@ -250,7 +252,8 @@ def plot_clip_ablation(loaders, outdir):
                 means.append(ldr.get_avg_recall(k))
                 stds.append(0.0)
         offset = (i - n / 2 + 0.5) * width
-        ax.bar(x + offset, means, width, yerr=stds, label=ldr.label,
+        yerr = np.array(stds) if any(s > 0 for s in stds) else None
+        ax.bar(x + offset, means, width, yerr=yerr, label=ldr.label,
                capsize=3, color=colors[i % len(colors)])
 
     ax.set_xticks(x)
