@@ -79,17 +79,7 @@ determines which partitions and filesystems are available.
 # 1. SSH to the Grete GPU login node
 ssh -i <key-file> <username>@glogin-gpu.hpc.gwdg.de
 
-## AI-Usage Disclosure
-
-This project was developed with assistance from an AI coding assistant. The
-AI helped with: codebase navigation, SLURM script configuration, bug fixes in
-the CLIP retrieval pipeline, hubness analysis implementation, and plot
-generation. All research decisions, experimental design, and result
-interpretation were made by the project members.
-
-Clone repos to `$HOME`
-
-```bash
+# 2. Clone repos to $HOME
 cd $HOME
 git clone https://github.com/nguyentrung02/Visual-information-retrieval.git
 git clone https://github.com/weaviate/query-agent-benchmarking.git
@@ -105,6 +95,13 @@ sbatch scripts/slurm-image-job.sh
 # 5. Monitor
 squeue --me
 ```
+
+For ablation experiments, edit the flags in `slurm-image-job.sh` (or use
+env-var overrides documented in `SKILL.md`):
+
+```bash
+SLURM_TILES=0 SLURM_NO_CENTER=0 SLURM_PROMPT=0 SLURM_OUTPUT_NAME="gdz-image-v1" \
+    sbatch scripts/slurm-image-job.sh
 
 Outputs are written to `scripts/results/gdz-image-<model>.json`.
 
@@ -382,24 +379,6 @@ python scripts/plot_results.py \
     --precomputed scripts/results/method-comparison.json \
     --outdir scripts/plots
 ```
-
----
-
-## Members contribution
-
-**Trung Nguyen:** Designed and executed the full pipeline — corpus extraction
-(PDF → page images via PyMuPDF), OCR (Tesseract, eng+deu), question creation
-(180 needle-in-a-haystack queries), dataset publication on Hugging Face,
-text-retrieval evaluation (BM25/vector/hybrid via Weaviate), CLIP image
-retrieval (brute-force, local GPU), and failure-mode analysis.
-
----
-
-## AI-Usage Card
-
-Development of this project was assisted by an AI coding assistant.  An AI-usage
-card will be generated at [ai-cards.org](https://ai-cards.org/) upon final
-submission of the project deliverables.
 
 ---
 
