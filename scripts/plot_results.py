@@ -4,10 +4,11 @@
 Reads either trial JSON files (*-trial-1.json) or metrics JSON files
 (*-trial-1-metrics.json) and creates diagnostic plots:
 
-  1. recall_comparison.png — Recall@K bar chart comparing all methods (replaces old recall_bar.png)
+  1. recall_comparison.png — Recall@K bar chart comparing all methods
   2. rank_dist.png       — Histogram of ground-truth rank positions
-  3. query_latency.png   — Boxplot of per-query latency
-  4. success_heatmap.png — Per-query hit/miss at k=1,5,20,50
+  3. clip_ablation.png   — CLIP ablation variants side-by-side
+  4. complementarity.png — BM25 vs CLIP success/failure overlap
+  5. comparison_table.md  — Markdown table of all metrics
 
 Usage:
     python scripts/plot_results.py \
@@ -19,8 +20,8 @@ Usage:
         --precomputed scripts/results/method-comparison.json \
         [--outdir scripts/plots/]
 
-If --metrics files are provided, pre-computed Recall@K and query_times
-are used (preferred, handles Recall@100 correctly even when trial JSON
+If --metrics files are provided, pre-computed Recall@K are used
+(preferred, handles Recall@100 correctly even when trial JSON
 only stores top-20 retrieved_ids).
 """
 
@@ -32,6 +33,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 class PrecomputedLoader:
     """Synthetic loader from pre-computed recall values in method-comparison.json."""
@@ -52,7 +54,7 @@ class PrecomputedLoader:
         return self._recall.get(f"recall_at_{k}", 0.0)
 
     def get_query_times(self):
-        return [0.0] * 180
+        return []
 
     def get_ranks(self):
         r1 = self._recall.get("recall_at_1", 0.0)
@@ -163,7 +165,7 @@ def plot_complementarity(loaders, outdir):
     img_only = img_hit - both
     either = text_hit + img_only
 
-    labels = ["Text\n(BM25)", "Image\n(CLIP V1)", "Either\n(Text ∪ Image)"]
+    labels = ["Text\n(BM25)", "Image\n(CLIP V1)", "Either\n(Text \u222a Image)"]
     values = [text_hit, img_hit, either]
     colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
 
@@ -175,7 +177,7 @@ def plot_complementarity(loaders, outdir):
                 f"{val}/{n}", ha="center", fontsize=12, fontweight="bold")
 
     ax.set_ylabel("Queries with hit at @20 (%)", fontsize=12)
-    ax.set_title("Complementary Failure Modes — GDZ Dataset\n"
+    ax.set_title("Complementary Failure Modes \u2014 GDZ Dataset\n"
                  f"Text-only: {text_only}  |  Image-only: {img_only}  |  Both: {both}",
                  fontsize=11)
     ax.set_ylim(0, 35)
@@ -211,7 +213,7 @@ def plot_recall_comparison(loaders, outdir):
     ax.set_xticks(x)
     ax.set_xticklabels([f"Recall@{k}" for k in ks])
     ax.set_ylabel("Recall", fontsize=12)
-    ax.set_title("Retrieval Performance: Text vs Image Methods — GDZ Dataset",
+    ax.set_title("Retrieval Performance: Text vs Image Methods \u2014 GDZ Dataset",
                  fontsize=14, fontweight="bold")
     ax.legend(fontsize=9, loc="upper left", ncol=2)
     ymax = max(all_means) * 1.15 if all_means else 0.35
@@ -283,7 +285,6 @@ def generate_results_table(loaders, outdir):
     print("  -> comparison_table.md")
 
 
-
 def plot_rank_histogram(loaders, outdir):
     fig, ax = plt.subplots(figsize=(8, 5))
     for ldr in loaders:
@@ -296,77 +297,16 @@ def plot_rank_histogram(loaders, outdir):
         bins = np.linspace(0, max(max_rank, 20), 30)
         ax.hist(found_ranks, bins=bins, alpha=0.6, label=f"{ldr.label} ({len(found_ranks)} found)",
                 edgecolor='white', linewidth=0.3)
-    
+
     ax.set_xlabel("Ground-truth rank (0-based)")
     ax.set_ylabel("Number of queries")
-    ax.set_title("Rank Distribution — where the correct image falls")
+    ax.set_title("Rank Distribution \u2014 where the correct image falls")
     ax.legend()
     ax.grid(axis="y", alpha=0.12, color='gray')
     fig.tight_layout()
     fig.savefig(outdir / "rank_dist.png", dpi=150)
     plt.close(fig)
     print("  -> rank_dist.png")
-
-
-def plot_query_latency(loaders, outdir):
-    fig, ax = plt.subplots(figsize=(7, 5))
-    datasets = []
-    labels = []
-    for ldr in loaders:
-        times = ldr.get_query_times()
-        if times:
-            datasets.append(times)
-            labels.append(ldr.label)
-
-    if not datasets:
-        print("  -> query_latency.png (skipped: no timing data)")
-        return
-
-    bp = ax.boxplot(datasets, tick_labels=labels, patch_artist=True)
-    for patch, color in zip(bp["boxes"], plt.cm.Set2.colors[: len(labels)]):
-        patch.set_facecolor(color)
-        patch.set_edgecolor('white')
-    for line in bp["whiskers"] + bp["caps"] + bp["medians"]:
-        line.set_color('gray')
-    ax.set_ylabel("Query latency (s)")
-    ax.set_title("Per-Query Latency")
-    ax.grid(axis="y", alpha=0.12, color='gray')
-    fig.tight_layout()
-    fig.savefig(outdir / "query_latency.png", dpi=150)
-    plt.close(fig)
-    print("  -> query_latency.png")
-
-
-def plot_success_heatmap(loaders, outdir):
-    ks = [1, 5, 20, 50]
-    n = len(loaders)
-    max_rows = max(len(ldr.queries) for ldr in loaders)
-
-    fig, axes = plt.subplots(1, n, figsize=(4 * n, max(6, max_rows / 8)), squeeze=False)
-    for col, ldr in enumerate(loaders):
-        qs = ldr.queries
-        if not qs:
-            continue
-        matrix = np.zeros((len(qs), len(ks)))
-        for i, q in enumerate(qs):
-            gold = set(q["ground_truth_ids"])
-            for j, k in enumerate(ks):
-                retrieved = set(q["retrieved_ids"][:k])
-                matrix[i, j] = 1.0 if gold & retrieved else 0.0
-        ax = axes[0, col]
-        ax.imshow(matrix, aspect="auto", cmap="RdYlGn", vmin=0, vmax=1,
-                  interpolation="nearest")
-        ax.set_xticks(range(len(ks)))
-        ax.set_xticklabels([f"@{k}" for k in ks])
-        ax.set_title(ldr.label, fontsize=10)
-        if col == 0:
-            ax.set_ylabel("Query index")
-            ax.set_yticks([])
-    fig.suptitle("Per-Query Success at k=1/5/20/50", fontsize=12)
-    fig.tight_layout()
-    fig.savefig(outdir / "success_heatmap.png", dpi=120)
-    plt.close(fig)
-    print("  -> success_heatmap.png")
 
 
 def main():
@@ -407,10 +347,8 @@ def main():
             loaders.append(ldr)
             print(f"Loaded {len(ldr.queries)} queries from {path.name} ({ldr.label})")
 
-    recall_overrides = {
+    overrides = {
         "BM25": {"recall_at_50": 0.328, "recall_at_100": 0.356},
-        "vector": {"recall_at_50": 0.333, "recall_at_100": 0.367},
-        "hybrid": {"recall_at_50": 0.322, "recall_at_100": 0.378},
     }
 
     has_local_text = any(l.label == "BM25" and l.queries for l in loaders)
@@ -428,13 +366,13 @@ def main():
                     f"recall_at_{k}": entry.get(f"recall_at_{k}", 0.0)
                     for k in [1, 5, 20, 50, 100]
                 }
-                recall.update(recall_overrides.get(label, {}))
+                recall.update(overrides.get(label, {}))
                 loaders.append(PrecomputedLoader(label, recall))
                 print(f"Loaded precomputed metrics for {label}")
 
     for ldr in loaders:
         if isinstance(ldr, ResultLoader):
-            for k, v in recall_overrides.get(ldr.label, {}).items():
+            for k, v in overrides.get(ldr.label, {}).items():
                 ldr._recall_overrides[k] = v
 
     print("\nRecall summary:")
@@ -449,8 +387,6 @@ def main():
     plot_recall_comparison(loaders, outdir)
     plot_clip_ablation(loaders, outdir)
     plot_rank_histogram(loaders, outdir)
-    plot_query_latency(loaders, outdir)
-    plot_success_heatmap(loaders, outdir)
     generate_results_table(loaders, outdir)
     print("\nAll done!")
 
