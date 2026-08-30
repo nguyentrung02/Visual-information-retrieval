@@ -33,7 +33,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 class PrecomputedLoader:
     """Synthetic loader from pre-computed recall values in method-comparison.json."""
 
@@ -169,7 +168,8 @@ def plot_complementarity(loaders, outdir):
     colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
 
     fig, ax = plt.subplots(figsize=(6, 5))
-    bars = ax.bar(labels, [v / n * 100 for v in values], color=colors, width=0.5)
+    bars = ax.bar(labels, [v / n * 100 for v in values], color=colors, width=0.5,
+                  edgecolor='white', linewidth=0.5)
     for bar, val in zip(bars, values):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
                 f"{val}/{n}", ha="center", fontsize=12, fontweight="bold")
@@ -193,23 +193,20 @@ def plot_recall_comparison(loaders, outdir):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = plt.cm.Set2.colors
+    all_means = []
     for i, ldr in enumerate(loaders):
         means = []
-        stds = []
         for k in ks:
             scores = ldr.get_recall_scores(k)
             if scores:
                 means.append(np.mean(scores))
-                stds.append(np.std(scores) if len(scores) > 1 else 0.0)
             else:
                 means.append(0.0)
-                stds.append(0.0)
+        all_means.extend(means)
         offset = (i - n / 2 + 0.5) * width
         color = colors[i % len(colors)]
-        # Only show error bars when std is non-zero to avoid zero-width caps
-        yerr = np.array(stds) if any(s > 0 for s in stds) else None
-        ax.bar(x + offset, means, width, yerr=yerr, label=ldr.label,
-               capsize=3, color=color)
+        ax.bar(x + offset, means, width, label=ldr.label,
+               color=color, edgecolor='white', linewidth=0.5)
 
     ax.set_xticks(x)
     ax.set_xticklabels([f"Recall@{k}" for k in ks])
@@ -217,9 +214,10 @@ def plot_recall_comparison(loaders, outdir):
     ax.set_title("Retrieval Performance: Text vs Image Methods — GDZ Dataset",
                  fontsize=14, fontweight="bold")
     ax.legend(fontsize=9, loc="upper left", ncol=2)
-    ax.set_ylim(0, 0.35)
+    ymax = max(all_means) * 1.15 if all_means else 0.35
+    ax.set_ylim(0, ymax)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0%}"))
-    ax.grid(axis="y", alpha=0.3)
+    ax.grid(axis="y", alpha=0.12, color='gray')
     fig.tight_layout()
     fig.savefig(outdir / "recall_comparison.png", dpi=150)
     plt.close(fig)
@@ -240,21 +238,19 @@ def plot_clip_ablation(loaders, outdir):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = ["#2ca02c", "#17becf", "#d62728", "#ff7f0e", "#1f77b4", "#9467bd"]
+    all_means = []
     for i, ldr in enumerate(all_loaders):
         means = []
-        stds = []
         for k in ks:
             scores = ldr.get_recall_scores(k)
             if scores:
                 means.append(np.mean(scores))
-                stds.append(np.std(scores) if len(scores) > 1 else 0.0)
             else:
                 means.append(ldr.get_avg_recall(k))
-                stds.append(0.0)
+        all_means.extend(means)
         offset = (i - n / 2 + 0.5) * width
-        yerr = np.array(stds) if any(s > 0 for s in stds) else None
-        ax.bar(x + offset, means, width, yerr=yerr, label=ldr.label,
-               capsize=3, color=colors[i % len(colors)])
+        ax.bar(x + offset, means, width, label=ldr.label,
+               color=colors[i % len(colors)], edgecolor='white', linewidth=0.5)
 
     ax.set_xticks(x)
     ax.set_xticklabels([f"Recall@{k}" for k in ks])
@@ -262,9 +258,10 @@ def plot_clip_ablation(loaders, outdir):
     ax.set_title("CLIP Ablation: Effect of Centering, Tiling, and Prompt",
                  fontsize=14, fontweight="bold")
     ax.legend(fontsize=9, loc="upper left")
-    ax.set_ylim(0, 0.35)
+    ymax = max(all_means) * 1.15 if all_means else 0.35
+    ax.set_ylim(0, ymax)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0%}"))
-    ax.grid(axis="y", alpha=0.3)
+    ax.grid(axis="y", alpha=0.12, color='gray')
     fig.tight_layout()
     fig.savefig(outdir / "clip_ablation.png", dpi=150)
     plt.close(fig)
@@ -297,12 +294,14 @@ def plot_rank_histogram(loaders, outdir):
             continue
         max_rank = max(found_ranks)
         bins = np.linspace(0, max(max_rank, 20), 30)
-        ax.hist(found_ranks, bins=bins, alpha=0.6, label=f"{ldr.label} ({len(found_ranks)} found)")
-
+        ax.hist(found_ranks, bins=bins, alpha=0.6, label=f"{ldr.label} ({len(found_ranks)} found)",
+                edgecolor='white', linewidth=0.3)
+    
     ax.set_xlabel("Ground-truth rank (0-based)")
     ax.set_ylabel("Number of queries")
     ax.set_title("Rank Distribution — where the correct image falls")
     ax.legend()
+    ax.grid(axis="y", alpha=0.12, color='gray')
     fig.tight_layout()
     fig.savefig(outdir / "rank_dist.png", dpi=150)
     plt.close(fig)
@@ -326,8 +325,12 @@ def plot_query_latency(loaders, outdir):
     bp = ax.boxplot(datasets, tick_labels=labels, patch_artist=True)
     for patch, color in zip(bp["boxes"], plt.cm.Set2.colors[: len(labels)]):
         patch.set_facecolor(color)
+        patch.set_edgecolor('white')
+    for line in bp["whiskers"] + bp["caps"] + bp["medians"]:
+        line.set_color('gray')
     ax.set_ylabel("Query latency (s)")
     ax.set_title("Per-Query Latency")
+    ax.grid(axis="y", alpha=0.12, color='gray')
     fig.tight_layout()
     fig.savefig(outdir / "query_latency.png", dpi=150)
     plt.close(fig)
