@@ -58,18 +58,35 @@ fi
 cd "$QAB_DIR" || { echo "ERROR: query-agent-benchmarking not found at $QAB_DIR" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
+# Ablation knobs (override via env vars when submitting)
+# ---------------------------------------------------------------------------
+TILES="${SLURM_TILES:-3}"
+NO_CENTER="${SLURM_NO_CENTER:-1}"
+PROMPT="${SLURM_PROMPT:-1}"
+OUTPUT_NAME="${SLURM_OUTPUT_NAME:-gdz-image-v4-tiles-prompt-nocenter}"
+
+# Build the --no-center and --prompt-template flags conditionally
+CENTER_FLAG=""
+if [ "$NO_CENTER" = "1" ] || [ "$NO_CENTER" = "true" ]; then
+    CENTER_FLAG="--no-center"
+fi
+
+PROMPT_FLAG=""
+if [ "$PROMPT" != "0" ] && [ "$PROMPT" != "false" ]; then
+    PROMPT_FLAG='--prompt-template "a scanned page of a scientific paper about {query}"'
+fi
+
+# ---------------------------------------------------------------------------
 # Run the brute-force CLIP image retrieval
 # Uses cosine similarity — no Weaviate required at runtime.
-# Edit the lines below to change tiling, centering, prompt template, or
-# output filename for each ablation variant.
 # ---------------------------------------------------------------------------
 python -u "$SCRIPT_DIR/run-image-retrieval.py" \
     --model openai/clip-vit-large-patch14 \
     --max-docs 3021 \
     --max-queries 180 \
     --batch-size 64 \
-    --tiles 3 \
-    --no-center \
-    --prompt-template "a scanned page of a scientific paper about {query}" \
-    --output-name gdz-image-v4-tiles-prompt-nocenter \
+    --tiles "$TILES" \
+    $CENTER_FLAG \
+    $PROMPT_FLAG \
+    --output-name "$OUTPUT_NAME" \
     --output-dir "$SCRIPT_DIR/results"

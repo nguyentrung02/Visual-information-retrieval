@@ -96,14 +96,22 @@ sbatch scripts/slurm-image-job.sh
 squeue --me
 ```
 
-For ablation experiments, edit the flags in `slurm-image-job.sh` (or use
-env-var overrides documented in `SKILL.md`):
+For ablation experiments, use env-var overrides (documented in `SKILL.md`):
 
 ```bash
+# V1 (baseline: no tiling, no centering, no prompt)
 SLURM_TILES=0 SLURM_NO_CENTER=0 SLURM_PROMPT=0 SLURM_OUTPUT_NAME="gdz-image-v1" \
     sbatch scripts/slurm-image-job.sh
 
-Outputs are written to `scripts/results/gdz-image-<model>.json`.
+# V2 (centering only)
+SLURM_TILES=0 SLURM_PROMPT=0 SLURM_OUTPUT_NAME="gdz-image-v2" \
+    sbatch scripts/slurm-image-job.sh
+
+# V4b (default: tiling + prompt, no centering)
+sbatch scripts/slurm-image-job.sh
+```
+
+Outputs are written to `scripts/results/gdz-image-<name>.json`.
 
 ---
 
