@@ -98,7 +98,6 @@ def main():
     print(f"\n  Supervisor target (diagnostic notes): centering should push")
     print(f"  hubness values toward BM25 levels (low top-50 share, high distinct pages).")
     print(f"  Empirical finding: centering is CATASTROPHIC — it INCREASES hubness")
-    print(f"  (e.g. V1: 21% top-50 share → V2: 93.5%), contradicting the diagnostic notes.")
 
 
 if __name__ == "__main__":
